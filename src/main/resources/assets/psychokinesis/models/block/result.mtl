@@ -1,0 +1,12 @@
+# Material map reconstructed from the supplied Blockbench GLTF.
+newmtl material_0
+Ka 1.000000 1.000000 1.000000
+Kd 1.000000 1.000000 1.000000
+Ks 0.000000 0.000000 0.000000
+map_Kd psychokinesis:block/crystal_glow
+
+newmtl material_1
+Ka 1.000000 1.000000 1.000000
+Kd 1.000000 1.000000 1.000000
+Ks 0.000000 0.000000 0.000000
+map_Kd psychokinesis:block/crystal_base

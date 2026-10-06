@@ -1,0 +1,9 @@
+{
+  "block.psychokinesis.resonant_crystal": "Resonant Crystal",
+  "item.psychokinesis.crystal_spawn_egg": "Resonant Crystal Spawn Egg",
+  "entity.psychokinesis.matter_body": "Held Matter",
+  "entity.psychokinesis.resonant_crystal": "Resonant Crystal",
+  "key.categories.psychokinesis": "Psychokinesis",
+  "key.psychokinesis.focus": "Focus / Grab",
+  "key.psychokinesis.action": "Context Action / Throw"
+}

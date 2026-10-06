@@ -14,7 +14,7 @@ Forge 1.20.1 / 47.4.26, Java 17, version `1.0.0-remake`, registry namespace `psy
 - Actual Forge GameTest run discovered and passed all 9 required tests. Do not confuse earlier fixture setup failures/zero-test runs with the final passing run.
 - The production jar was inspected: zero legacy `com/telekinesis` classes and zero bundled test classes.
 - Client launched, loaded assets without mod/resource errors, and joined a newly created local world. The user then stopped Computer Use with Escape. Do not resume UI automation without a new request. Full interactive gameplay/modpack validation is not complete.
-- GitHub publication is the remaining immediate step. Update this note with the PR URL after publishing.
+- Published draft PR: https://github.com/memesareiternal-crypto/Chronicle-mod-/pull/1 . The branch contains the remake; main has not been merged. Follow-up work is the acceptance checklist and fidelity limits in docs/COMPATIBILITY.md, not rebuilding the project.
 - `docs/COMPATIBILITY.md` is the authoritative list of fidelity limits and unverified behavior; do not claim every requested nuance is finished.
 ## Build commands on this workstation
 

@@ -30,7 +30,7 @@ public final class GunBridge {
                     float damage = ((Number)amount.invoke(event)).floatValue();
                     if ((Boolean)headshot.invoke(event)) damage *= ((Number)multiplier.invoke(event)).floatValue();
                     boolean blocked = Concentration.shield(target,damage,(net.minecraft.world.entity.Entity)attacker.invoke(event));
-                    if (!blocked && target instanceof ServerPlayer p && Potential.active(p) && damage <= Ward.capacity(p)) { Potential.spend(p, Math.max(.5, damage)); blocked = true; }
+                    if (!blocked && target instanceof ServerPlayer p && Potential.active(p) && dev.chronicle.Settings.PASSIVE_DEFENSE.get() && damage <= Ward.capacity(p)) { Potential.practice(p, Math.max(.5, damage)); blocked = true; }
                     if (blocked && event.isCancelable()) event.setCanceled(true);
                     else PENETRATING.put(target.getUUID(), target.level().getGameTime());
                 } catch (ReflectiveOperationException ignored) { /* Unknown API version falls back to ordinary damage events. */ }

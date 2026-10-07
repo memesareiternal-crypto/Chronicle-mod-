@@ -59,10 +59,14 @@ public final class ChronicleTests {
         BlockPos p=point(h);h.getLevel().setBlock(p,Blocks.BEDROCK.defaultBlockState(),3);h.getLevel().setBlock(p.east(),Blocks.GOLD_BLOCK.defaultBlockState(),3);
         h.assertTrue(MatterBody.capture(h.getLevel(),List.of(p,p.east()),null)==null,"Unbreakable regions must be rejected");h.assertTrue(h.getLevel().getBlockState(p.east()).is(Blocks.GOLD_BLOCK),"Rejected capture must not remove other blocks");h.succeed();
     }
-    @GameTest(template="empty") public static void maximum_level_retains_safe_strain(GameTestHelper h) {
-        var p=player(h);Potential.maximize(p);Potential.spend(p,Potential.threshold(p)*2);
-        h.assertTrue(Potential.strain(p)>Potential.threshold(p),"Maximum level still records exertion");double control=Potential.control(p);Potential.spend(p,Potential.threshold(p));h.assertTrue(Potential.control(p)<=control,"Continuing exertion reduces control without damaging the player");
-        Potential.active(p,false);h.assertTrue(Potential.acquired(p)&&!Potential.active(p),"Toggle preserves ownership");Potential.remove(p);h.assertFalse(Potential.acquired(p),"Remove revokes power");h.succeed();
+    @GameTest(template="empty") public static void repeated_use_never_weakens_power(GameTestHelper h) {
+        var p=player(h);Potential.maximize(p);double force=Potential.force(p);float health=p.getHealth();
+        p.getPersistentData().getCompound("chronicle_potential").putDouble("strain",1000000);
+        for(int i=0;i<1000;i++)Potential.practice(p,100);
+        h.assertTrue(Potential.force(p)==force&&p.getHealth()==health,"Unlimited use must preserve force and health");
+        h.assertFalse(Potential.data(p).contains("strain"),"Legacy exertion data must be removed");
+        Potential.active(p,false);h.assertTrue(Potential.acquired(p)&&!Potential.active(p),"Toggle preserves ownership");
+        Potential.remove(p);h.assertFalse(Potential.acquired(p),"Remove revokes power");h.succeed();
     }
     @GameTest(template="empty") public static void hold_restores_mob_state(GameTestHelper h) {
         var p=player(h);Potential.grant(p);var mob=h.spawn(EntityType.ZOMBIE,new BlockPos(2,3,2));mob.setNoAi(false);mob.setNoGravity(false);
@@ -70,6 +74,6 @@ public final class ChronicleTests {
         h.assertFalse(mob.isNoAi()||mob.isNoGravity(),"Release must restore original AI and gravity");h.succeed();
     }
     @GameTest(template="empty") public static void input_is_bounded(GameTestHelper h) {
-        Intent intent=new Intent(-1,Integer.MAX_VALUE);h.assertTrue(intent.buttons()==2047&&intent.wheel()==1,"Untrusted input must be bounded");h.succeed();
+        Intent intent=new Intent(-1,Integer.MAX_VALUE);h.assertTrue(intent.buttons()==4095&&intent.wheel()==1,"Untrusted input must be bounded");h.succeed();
     }
 }

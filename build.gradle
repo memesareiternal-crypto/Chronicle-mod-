@@ -84,9 +84,19 @@ minecraft {
         client {
             // Comma-separated list of namespaces to load gametests from. Empty = all namespaces.
             property 'forge.enabledGameTestNamespaces', mod_id
+            if (project.hasProperty('flightAudit')) {
+                workingDirectory project.file('run-flight-audit')
+                property 'chronicle.flightAudit', 'true'
+                args '--quickPlaySingleplayer', 'Flight Audit'
+            }
             if (project.hasProperty('visualSmoke')) {
                 property 'chronicle.visualSmoke', 'true'
-                args '--quickPlaySingleplayer', 'Codex Visual Smoke'
+                if (project.hasProperty('isolatedVisual')) {
+                    workingDirectory project.file('run-flight-audit')
+                    args '--quickPlaySingleplayer', 'Flight Audit'
+                } else {
+                    args '--quickPlaySingleplayer', 'Codex Visual Smoke'
+                }
             }
             if (project.hasProperty('playtest')) {
                 property 'chronicle.playtest', 'true'

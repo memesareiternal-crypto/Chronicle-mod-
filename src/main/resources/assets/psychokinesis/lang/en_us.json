@@ -4,6 +4,7 @@
   "entity.psychokinesis.matter_body": "Held Matter",
   "entity.psychokinesis.resonant_crystal": "Resonant Crystal",
   "key.categories.psychokinesis": "Psychokinesis",
-  "key.psychokinesis.focus": "Focus / Grab",
-  "key.psychokinesis.barrier": "Barrier"
+  "key.psychokinesis.focus": "Gather / Orbit",
+  "key.psychokinesis.force": "Force / Launch",
+  "key.psychokinesis.barrier": "Protection / Projected Barrier"
 }

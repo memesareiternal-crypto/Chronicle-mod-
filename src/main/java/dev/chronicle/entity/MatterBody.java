@@ -30,6 +30,8 @@ public final class MatterBody extends Entity implements IEntityAdditionalSpawnDa
     private final List<Cell> cells = new ArrayList<>();
     private long lastHeld = Long.MIN_VALUE;
     private int stillTicks;
+    private Vec3 interpolationTarget;
+    private int interpolationSteps;
     private UUID owner;
     private boolean transferring;
     private double physicalMass, hardness;
@@ -139,12 +141,26 @@ public final class MatterBody extends Entity implements IEntityAdditionalSpawnDa
         if (cells.stream().anyMatch(c -> c.data != null)) return;
         dev.chronicle.world.MassJobs.shatter(this,actor);
     }
+    @Override public void lerpTo(double x,double y,double z,float yaw,float pitch,int steps,boolean teleport) {
+        interpolationTarget=new Vec3(x,y,z);interpolationSteps=Math.max(1,Math.min(4,steps));
+        setYRot(yaw);setXRot(pitch);
+    }
     @Override public void tick() {
-        super.tick(); if (level().isClientSide) return;
+        super.tick();
+        if(level().isClientSide){
+            if(interpolationSteps>0&&interpolationTarget!=null)setPos(position().lerp(interpolationTarget,1./interpolationSteps--));
+            return;
+        }
         if(transferring) { setDeltaMovement(Vec3.ZERO); return; }
         boolean held = isHeld(); setNoGravity(held);
         if (!held) setDeltaMovement(getDeltaMovement().add(0, -Settings.MATTER_GRAVITY.get(), 0).scale(Settings.MATTER_DRAG.get()));
-        move(MoverType.SELF, getDeltaMovement());
+        if(cells.size()>256){
+            // A coarse collision proxy bounds work independently of the stored cell count.
+            // The full extent remains available to selection, rendering and impact accounting.
+            setBoundingBox(new net.minecraft.world.phys.AABB(getX()-1,getY(),getZ()-1,getX()+1,getY()+2,getZ()+1));
+            move(MoverType.SELF,getDeltaMovement());
+            setBoundingBox(getDimensions(getPose()).makeBoundingBox(position()));
+        }else move(MoverType.SELF, getDeltaMovement());
         if (!held && (onGround() || getDeltaMovement().lengthSqr() < .0005)) stillTicks++; else stillTicks = 0;
         if (stillTicks > 20 && tickCount % 20 == 0) {
             var actor = owner == null ? null : ((ServerLevel)level()).getServer().getPlayerList().getPlayer(owner);

@@ -1,78 +1,98 @@
 # Chronicle: Psychokinesis
 
-**2.0.0-rebuild — Minecraft Forge 1.20.1, Java 17.** Manipulate targets through force, direction, scale, and context. Right click is the primary grip; there is no ability list or mode selector. An unlabeled graphical meter above the hotbar and experience bar shows the output you currently choose to use.
+**3.0.0-tatsumaki — Minecraft Forge 1.20.1, Java 17.** Overwhelming control over enemies, debris, terrain and your own movement. Three keys work alongside the mouse. There are no ability menus, power items, or named modes to scroll through.
 
-## Getting started
+## Start playing
 
-Install the jar from `build/libs/` on the client and server with Forge. Rare chambers generate in newly created Overworld chunks; sustained exposure to their resonant crystal awakens psychokinesis. Operators can use `/psychokinesis max` for testing or `/psychokinesis spawncrystal` to place a crystal.
+Install `psychokinesis-3.0.0-tatsumaki.jar` on client and server. Rare chambers generate in new Overworld chunks; exposure to their crystal awakens the power. Operators can use `/psychokinesis max` to immediately test maximum potential.
 
-The supplied crystal model and embedded textures are complete. The earlier incomplete appearance came from conversion/rendering issues in this project. Its corrected model now includes animated emissive cracks.
+The original crystal model and embedded textures are intact. Rendering caused the visual glitches. Each face now draws once, with animated full-bright white veins; the old overlapping additive glow pass is removed.
 
 ## Controls
 
-| Input | Result |
+| Input | What happens |
 | --- | --- |
-| Hold right click while aiming | Grip and steer a mob, projectile, vehicle, block, or connected mass; works empty handed or with an item |
-| Release right click | Release the grip and preserve momentum |
-| Sneak + hold right click | Select a nearby group or larger connected block area |
-| Hold G | Optional alternate grip; press G while already holding to add another aimed target |
-| G + scroll with no held target | Adjust the selection radius |
-| Scroll while holding | Change the holding distance |
-| Hold left click + scroll while holding | Rotate the held object; block masses rotate in quarter turns |
-| Hold/release left click while holding | Charge and throw; longer holds invest more force |
-| Sneak + brief left click while holding | Disarm held living targets; continue past 12 ticks to compress |
-| Sustain compression | Apply inward force; sufficiently advanced sustained grips can remove armor or shatter matter |
-| Sprint + release while holding | Place a block mass, deposit a held item into a compatible container, or pin a target to the aimed surface |
-| Right-click tap with no grip | Operate suitable remote blocks or harvest ripe crops |
-| Right-click charge/release with no acquired grip | Apply directional pressure; sneak pulls inward, a long high-level release expands into a psychic explosion |
-| Jump + release right click with no held target | Toggle acceleration-based flight; movement keys steer, jump rises, sneak descends, sprint accelerates |
-| Sneak + jump + release right click with no held target | Sense nearby living targets |
-| Sneak + sprint + right click | Shape a cutting gesture; aim movement and left click affect its geometry |
-| Sprint + right click with a block item and no grip | Build along the aimed surface; sneak adds mirrored placement |
-| Tap B | Raise or dismiss self-protection; dismissal redirects captured projectiles |
-| Hold B and aim | Position protection around an entity or location |
-| Sneak + B / sprint + B | Create a plane / dome instead of a sphere |
-| B + scroll | Resize protection, including while forming a new barrier |
-| Sneak + scroll, anywhere | Lower or raise overall output; this takes priority over other wheel contexts |
-| Sneak + G + right click, with no held target | Toggle concentration |
+| Hold right click | Grab and steer the aimed entity group or connected terrain mass automatically, with any item or an empty hand |
+| Release right click | Release ordinary grips; an existing orbit resumes |
+| Hold then release left click while gripping | Charge and throw the entire selection toward your aim |
+| Crouch + left click while gripping | Immediately disarm living targets; keep holding to crush; prolonged advanced control can strip armor |
+| **G** | Gather nearby entities and cohesive ground fragments into an orbit; press again to release |
+| Sprint + G | Gather around the aimed point instead of yourself |
+| Right click during an orbit | Bring the swarm under direct aim control |
+| **V** with held targets | Rapidly launch one target/fragment every three ticks |
+| Crouch + V with held targets | Launch the entire swarm at once |
+| Hold/release **V** with no held targets | Apply directional force; stronger charged impacts displace terrain |
+| Crouch + hold/release V with no held targets | Pull an area toward yourself; advanced output raises a real terrain mass into suspension |
+| V + left click with no held targets | Focus force into piercing/drilling; sweep the camera to shear a wider plane |
+| Sprint + hold/release V | Radial pressure; charged advanced output erupts surrounding terrain into a psychic explosion |
+| Charged V while looking down at the ground | Lower and flatten the surface by lifting its excess into one real displaced mass |
+| **B** | Immediately toggle personal damage resistance |
+| Hold B for half a second, aim, then release | Project a field around an ally or location; crouch forms a plane, sprint forms a dome |
+| B + scroll | Resize an existing projected field |
+| Tap B with a projected field | Dismiss it and return captured projectiles |
+| **Double-tap Space** | Toggle self-flight, unlocked at level 4 by default |
+| WASD / Space / crouch in flight | Steer / ascend / descend; no movement input brakes into hover; sprint accelerates |
+| Crouch + scroll | Adjust output from 5% to 100%; ordinary hotbar scrolling also continues |
+| Scroll while gripping | Change holding distance |
+| Left click + scroll while gripping | Rotate objects; block masses rotate in quarter turns |
+| Sprint + release right click | Place a terrain mass, deposit an item into a compatible container, or pin a target |
+| Right-click tap on a utility block or ripe crop | Remote interaction or harvest |
+| Sprint + right click with a block item | Place real inventory blocks remotely; crouch adds mirrored placement |
 
-Scrolling also continues to change the vanilla hotbar. Sneak-scroll adjusts output from 5% to 100% and updates the meter; it never selects an ability. Lower output reduces force, reach, carried mass, group size, flight, and defensive effort. Right-click item use is intercepted while concentration is active; toggling concentration restores normal item use.
+Mouse movement directly changes target positions. Low output selects individual blocks and a few entities; high output automatically acquires large groups and terrain. You do not manually select sections.
 
-## Scale, progression, and configuration
+Use `/psychokinesis toggle` to switch concentration off/on and restore ordinary item use. Normal inventory screens, hotbar slots, and hotbar scrolling remain available. The only custom HUD is the unlabeled prismatic output strip above the hotbar/experience area.
 
-Any awakened player can run `/psychokinesis level` to see their stage out of 10, or `/psychokinesis controls` for control instructions. Operators additionally have `grant`, `remove`, `max`, `setlevel`, `setprogress`, `resetprogress`, `spawncrystal`, and `spawnformation` commands.
+## What the power can do
 
-Default full-output progression allows one target at stage 1, two at stage 2, dozens at intermediate stages, and about 323 at stage 10, within the configurable 512-target ceiling. The tests grip and release 256 real mobs. At stage 10, the default selection budget reaches 12,288 block cells; the carrier bounding-volume ceiling is 32,768.
+- Control mobs, players, bosses, projectiles, loose items and occupied vehicles with reversible gravity/AI suspension and exclusive ownership.
+- Scale from one/two targets to dozens and hundreds. Default maximum potential/output permits about 323 targets, within a configurable 512-target ceiling.
+- Lift up to 32,768 real block cells at default maximum output, including connected hills, platforms, trees and building fragments. Range reaches about 167 blocks by default, with a configurable maximum of 256.
+- Orbit coherent debris around yourself or a chosen point, redirect incoming arrows using those blocks, and launch individual fragments or the full swarm.
+- Throw with mass/output-dependent speed and momentum. Strong wall impacts damage nearby entities, knock them back, produce a pressure wave, open real cavities and eject secondary terrain.
+- Lift ground, lower/flatten surfaces, punch cavities, drill trenches, rip structures and relocate preserved masses for construction.
+- Instantly reinforce personal defense against ordinary melee, projectiles, explosions and damage-event-based modded attacks. At level 10/full output, B resists up to 94% of ordinary damage; extreme attacks penetrate more. Void/administrative death still applies.
+- Optionally reverse incoming projectiles passively. Projected sphere/dome/plane fields have finite integrity, intercept/capture projectiles and suppress explosion paths crossing their surfaces. They can also contain an explosion inside a sphere.
+- Apply concentrated armor-bypassing magic pressure while leaving resistance and exceptional defenses effective. Boss health, armor and mass contribute resistance; bosses are not blanket-immune.
+- Briefly sense nearby living targets when gathering, heal at advanced stages, disarm real weapons, tend crops, operate remote redstone and transport inventory-bearing blocks.
+
+**There are no overuse mechanics.** Repeated use never causes fatigue, self-damage, stamina depletion, recovery requirements or loss of control. Old exertion save data and config entries are removed. Practice and online time still award experience.
+
+## Configuration and commands
 
 Edit `config/chronicle-common.toml`:
 
-- `growth.levelingRateMultiplier`: `0`–`100`; `0` disables earned progression.
-- `growth.maximumLevel`: `1`–`10`.
-- `physics.overallStrength`: `0.1`–`20`, default `1`.
-- `physics.outputScrollStep`: output adjustment per crouch-scroll step.
-- `physics.maximumSimultaneousTargets`, `targetCountGrowthPerStage`, `maximumStructureVolume`, and `worldEditBudgetPerTick`: scale and workload limits.
-- Force, reach, resistance, compression, collision damage, flight, barrier integrity, PvP, inventory transport, and crystal-generation settings.
-- `presentation.specialEffects`, `thinAura`, and `restrainedPowerSounds`: optional presentation.
+- `growth.levelingRateMultiplier`: 0–100; zero disables earned progression.
+- `physics.overallStrength`: 0.1–20, default 1.
+- `physics.outputScrollStep`, `maximumSimultaneousTargets`, `maximumSelectionRadius`, `maximumStructureVolume` and `worldCellWorkPerTick`.
+- `physics.initialControlReach`, `controlReachPerStage`, `maximumControlReach`, `initialCarriedBlocks`.
+- `sustainedPower.selfFlightSpeed`, `selfFlightSpeedPerStage`, `selfFlightAcceleration`, `flightBraking`, `personalProtection`, `passiveProjectileDefense`.
+- Force, collision/compression, boss resistance, terrain editing, PvP, inventory transport, unlock levels and crystal generation.
+- Optional smooth prismatic effects, aura and restrained sounds.
 
-Existing config files keep their saved choices, including older structure limits. Strain reduces control when overused; it never directly damages the wielder.
+The new reach, carried-block, work-budget and flight keys adopt this revamp's defaults when upgrading. Strength, leveling, protection and other unchanged config choices remain saved.
 
-## Rendering and world changes
+Any awakened player can use `/psychokinesis level` (level out of 10), `controls` and `toggle`. Operators also have `grant`, `remove`, `max`, `setlevel`, `setprogress`, `resetprogress`, `spawncrystal` and `spawnformation`.
 
-Barriers and explosions use smooth translucent prismatic surfaces and soft pressure ripples. The films draw after translucent world blocks with additive blending and read-only depth, preserving the scene behind them. Powers do not emit particle effects or lock the camera. The graphical output meter spans the hotbar width above the experience bar and has no ability labels or level text.
+## Performance and visuals
 
-A moving block selection is one simulated `MatterBody`. Its palette stores real block states and optional block-entity data; a cached mesh uses the resource pack's block textures. Extraction, placement, and other large edits share a dimension-wide work queue, defaulting to 256 work steps per tick. There are no independent ticking block entities for each carried cell.
+Moving terrain uses one carrier per cohesive fragment, real resource-pack block textures, compact palettes and preserved server-side container data. There is no ticking entity for each carried block. Server edits share a dimension-wide budget of 2,048 work steps per tick. Client mesh baking shares a 2,048-cell budget per frame, then reuses cached GPU buffers.
 
-See [architecture](ARCHITECTURE.md) and [compatibility and verification limits](docs/COMPATIBILITY.md) for the implementation and its practical limits.
+Smooth prismatic surfaces use additive blending and read-only depth so blocks behind fields keep their lighting. Power effects have no wire cages or particle spam. The camera stays under player control. Arbitrary terrain twisting/tilting remains excluded.
 
-## Build and verification
+See [architecture](ARCHITECTURE.md) and [compatibility](docs/COMPATIBILITY.md) for coarse collision, custom block-entity, boss-script and modpack limits.
 
-Use Java 17 with Forge 47.4.26:
+## Build and validation
+
+Use Java 17 and Forge 47.4.26:
 
 ```text
 gradlew.bat build
-gradlew.bat runGameTestServer
+gradlew.bat runGameTestServer -PcleanGameTests
 ```
 
-For a separate fresh test world and default configuration, use `gradlew.bat runGameTestServer -PcleanGameTests`.
+All **51 Minecraft GameTests** pass locally. They cover actual automatic right-click crowd control, a 1,728-cell terrain lift, debris interception, flattening, inventory-safe impact displacement, projected explosion suppression, disarming, ownership, output, unlimited use and flight gestures.
 
-The production build and all **38 GameTests** pass. Coverage includes entity/block collisions, disarming controls, composite ownership, projectile barriers, queued inventory-safe transfers, hundreds-scale groups, output adjustment, cleanup, and flight permissions. The jar is `build/libs/psychokinesis-2.0.0-rebuild.jar`; test classes are excluded from its packaging. The client also verified the prismatic films, animated crystal glow, textured mass, and meter placement. Live multiplayer and TaCZ modpack validation remain separate checks.
+An isolated real client test pressed the actual keyboard controls and confirmed about 89 blocks of forward flight, 26 blocks of strafing, 27 blocks of ascent, braking, restored gravity and matching server positions. Client screenshots checked the crystal's two glow phases, textured carriers, prismatic film and meter placement. Test helpers are excluded from the production jar.
+
+Live dedicated multiplayer and installed TaCZ/modpack acceptance still need testing; generic Forge damage resistance and the optional TaCZ adapter are implemented.

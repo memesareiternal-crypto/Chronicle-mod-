@@ -1,23 +1,22 @@
-# Implementation status — 2.0.0-rebuild
+# Implementation status — 3.0.0-tatsumaki
 
-| Area | State | Current behavior / verification |
-| --- | --- | --- |
-| Contextual controls | DONE | Primary right-click grip; optional G; left-click throw/disarm/compression; dedicated B; no mode selector |
-| Output adjustment | DONE | Global crouch-scroll, 5%–100%, unlabeled meter aligned above hotbar/experience; hotbar scrolling continues |
-| Entity/group manipulation | DONE | 1/2/dozens/hundreds progression; 256 actual mobs gripped, steered, and released in tests |
-| Composite ownership | DONE | Vehicle/passenger mass and resistance; exclusivity, dismount cleanup, topology checks |
-| Force/collision/compression | DONE | Shared momentum, swept impacts, blocked-axis wall damage, work-based compression, group self-collision protection |
-| Blocks/structures | DONE | Connected extraction, one palette carrier, quarter-turn rotation, throws, precise queued deployment |
-| Large world edits | DONE | Reserved cells, chunk checks, recoverable transfers, shared per-dimension budget |
-| Block textures | DONE | Cached GPU meshes of real baked models; fluid texture and block-entity static fallback |
-| Projectile manipulation | DONE | Reversible capture/steering/redirection; barrier interception and arrow damage safety |
-| Barriers | DONE | Sphere/dome/plane, remote positioning, resizing, charge/output, integrity, penetration and failure |
-| Effects/crystal | DONE | Additive prismatic surfaces/ripples after translucent blocks, read-only depth, free camera, optional presentation, animated emissive crystal cracks |
-| Flight | DONE | Acceleration, braking, movement modifiers, no creative permission grant, guarded floating timeout |
-| Precision/utility | DONE | Remote redstone, crop tending, item deposit, cutting gestures, mirrored construction, surface pinning |
-| Progression/config/commands | DONE | Public level out of 10; admin tools; growth/output/strength/scale settings; persistent power |
-| Overuse | DONE | Strain lowers control without direct self-damage |
-| Regression tests | DONE | All 38 Forge GameTests pass; production build packages the final renderer and meter changes |
-| External integration validation | UNVERIFIED | TaCZ API checked against official source; live TaCZ/modpack and multiplayer acceptance still need playtesting |
+| Area | Implemented behavior and evidence |
+| --- | --- |
+| Simple controls | Three dedicated keys G/V/B, contextual mouse input, automatic group/terrain selection; no section-selection workflow |
+| Output | Crouch-scroll, unlabeled meter above hotbar/XP, ordinary hotbar scrolling retained |
+| Group control | One/two/dozens/hundreds scaling; 120 mobs through ordinary right click and 256 through the grip solver tested |
+| Huge terrain | Default level-10 budget 32,768 cells; 1,728-cell automatic right-click lift tested |
+| Debris | Automatic cohesive gathering, persistent self/point orbit, single/rapid/all launches; real block-arrow interception tested |
+| Destruction | Momentum impacts, knockback, shockwaves, secondary preserved terrain, cavities, ground raising/flattening, drilling/shearing |
+| Inventory safety | Queued extraction/placement, reservations, interruption/restart recovery, seven-diamond impact/container tests |
+| Flight | Double Space; actual client keyboard/network movement, strafe/ascent/braking and gravity restoration verified |
+| Personal defense | Instant B damage resistance, output/strength scaling, optional passive projectile reversal, generic mod-style damage test |
+| Projected fields | Sphere/dome/plane, charge/resize, finite integrity, projectile capture/return, explosion-path suppression tested |
+| Crystal/effects | Single-pass animated vein emission, original intact artwork, smooth prismatic films; two client glow screenshots inspected |
+| Performance | Shared server edit budget, bounded client mesh pages, cached GPU textures, coarse large-body collision proxy |
+| Progression | Ten stages, public level/controls/toggle commands, XP rate multiplier and 0.1–20 strength |
+| Repeated use | No exertion, stamina, damage, recovery or control degradation; legacy state/config purged |
+| Validation | Production build and all 51 GameTests pass locally; isolated actual client flight and renderer smoke pass |
+| External acceptance | Dedicated multiplayer, live TaCZ/modpack, shader/resource-pack combinations remain unverified |
 
-Practical limits: coarse carrier collision, static fallback for custom animated block-entity renderers, grid-based fluids, and possible boss-script motion overrides. The latest request excludes arbitrary tilting and terrain twisting. See [compatibility](docs/COMPATIBILITY.md) for the remaining verification matrix.
+No arbitrary terrain twisting or tilting. Carrier collision is approximate; custom animated block entities use static textured fallback; boss scripts/multipart models may override movement. See [compatibility](docs/COMPATIBILITY.md).

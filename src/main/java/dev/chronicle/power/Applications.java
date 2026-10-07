@@ -49,6 +49,25 @@ public final class Applications {
         if(seed.is(BlockTags.LOGS)||seed.is(BlockTags.LEAVES))r=Math.max(r,Math.min(Potential.area(p),12));
         MassJobs.capture(p,hit.getBlockPos(),r,Potential.blocks(p),callback);
     }
+    public static List<Entity> nearby(ServerPlayer p,Vec3 center,double radius) {
+        return p.level().getEntities(p,new AABB(center,center).inflate(radius),e->Physics.allowed(p,e)&&e.distanceToSqr(center)<=radius*radius&&!Physics.controlled(e))
+            .stream().sorted(Comparator.comparingDouble(e->e.distanceToSqr(center))).limit(Potential.targets(p)).toList();
+    }
+    /** Gather a handful of coherent fragments, each containing many genuine block cells. */
+    public static void debris(ServerPlayer p,Vec3 center,Consumer<MatterBody> captured,Runnable completed) {
+        if(!Settings.TERRAIN.get()){completed.run();return;}
+        int count=Math.max(2,Math.min(12,Potential.area(p)/2));
+        int radius=Math.min(3,Math.max(1,Potential.area(p)/5));
+        double ring=Math.max(4,Potential.area(p)*.75);
+        int[] remaining={count};
+        for(int i=0;i<count;i++){
+            double a=i*Math.PI*2/count;
+            Vec3 from=center.add(Math.cos(a)*ring,8,Math.sin(a)*ring);
+            var hit=p.level().clip(new ClipContext(from,from.add(0,-24,0),ClipContext.Block.OUTLINE,ClipContext.Fluid.NONE,p));
+            if(hit.getType()!=HitResult.Type.BLOCK){if(--remaining[0]==0)completed.run();continue;}
+            MassJobs.capture(p,hit.getBlockPos(),radius,Math.max(1,Math.min(512,Potential.blocks(p)/count)),body->{captured.accept(body);if(--remaining[0]==0)completed.run();});
+        }
+    }
     public static List<Entity> group(ServerPlayer p,Entity target,int radius){
         if(target==null)return List.of();Vec3 center=target.position();return p.level().getEntities(p,new AABB(center,center).inflate(radius),e->Physics.allowed(p,e)&&e.distanceToSqr(center)<=radius*(double)radius).stream().sorted(Comparator.comparingDouble(e->e.distanceToSqr(center))).limit(Potential.targets(p)).toList();
     }
@@ -68,6 +87,27 @@ public final class Applications {
         }
         return MatterBody.capture(p.serverLevel(), selected, p);
     }
+    public static void terrainForce(ServerPlayer p,boolean pull,int charge,Consumer<MatterBody> raised){
+        if(!Settings.TERRAIN.get()||Potential.level(p)<Settings.REGION_LEVEL.get()||Potential.output(p)<.35)return;
+        var hit=aim(p);if(hit.getType()!=HitResult.Type.BLOCK)return;
+        int radius=Math.max(1,Math.min(Potential.area(p),2+charge/8));
+        if(pull){
+            MassJobs.capture(p,hit.getBlockPos(),radius,Potential.blocks(p),raised);return;
+        }
+        if(hit.getDirection()==Direction.UP&&charge>=25){
+            // A charged downward press removes everything above a shared plane as one real
+            // lifted mass. No invented fill blocks, lost containers, or instant radial deletion.
+            int depth=Math.min(8,1+charge/15),plane=hit.getBlockPos().getY()-depth;
+            List<BlockPos> cells=new ArrayList<>();
+            for(BlockPos pos:BlockPos.betweenClosed(hit.getBlockPos().offset(-radius,-depth+1,-radius),hit.getBlockPos().offset(radius,8,radius))){
+                if(cells.size()>=Potential.blocks(p))break;
+                if(pos.getY()>plane&&pos.distToCenterSqr(hit.getLocation().x,pos.getY()+.5,hit.getLocation().z)<=radius*(double)radius&&WorldAccess.loaded(p.serverLevel(),pos)&&!p.level().getBlockState(pos).isAir())cells.add(pos.immutable());
+            }
+            MassJobs.captureSelection(p,cells,body->{if(body!=null){body.release();Physics.launch(p,body,p.getLookAngle().multiply(1,0,1).normalize().scale(2).add(0,1.5,0));}});
+        }else if(charge>=10){
+            MassJobs.capture(p,hit.getBlockPos(),Math.min(8,radius),Math.min(Potential.blocks(p),4096),body->{if(body!=null){body.release();Physics.launch(p,body,p.getLookAngle().scale(Math.min(6,1+Potential.force(p))));}});
+        }
+    }
     public static void pressure(ServerPlayer p, boolean pull, double charge, boolean spherical) {
         double reach = spherical ? Math.min(Potential.reach(p), (3+Potential.level(p)*.9+charge)*Math.sqrt(Potential.strength())) : Potential.reach(p);
         Vec3 eye = p.getEyePosition(), look = p.getLookAngle();
@@ -80,7 +120,7 @@ public final class Applications {
             Vec3 force = (spherical || pull ? delta.normalize() : look).scale(strength * (pull ? -1 : 1));
             Physics.impulse(p,e,force);
         }
-        Potential.spend(p, (spherical ? 35 : 2) * charge);
+        Potential.practice(p, (spherical ? 35 : 2) * charge);
     }
     public static boolean interact(ServerPlayer p) {
         var hit = aim(p); if (hit.getType() != HitResult.Type.BLOCK || !WorldAccess.edit(p, hit.getBlockPos())) return false;
@@ -99,7 +139,7 @@ public final class Applications {
         var hit = aim(p); if (hit.getType() != HitResult.Type.BLOCK) return;
         if (erase) {
             var state = p.level().getBlockState(hit.getBlockPos());
-            if (state.getDestroySpeed(p.level(), hit.getBlockPos()) >= 0 && WorldAccess.edit(p, hit.getBlockPos())) { WorldAccess.harvest(p, hit.getBlockPos(), state); Potential.spend(p, 1); }
+            if (state.getDestroySpeed(p.level(), hit.getBlockPos()) >= 0 && WorldAccess.edit(p, hit.getBlockPos())) { WorldAccess.harvest(p, hit.getBlockPos(), state); Potential.practice(p, 1); }
             return;
         }
         ItemStack stack = p.getMainHandItem(); if (!(stack.getItem() instanceof BlockItem item)) return;
@@ -114,7 +154,7 @@ public final class Applications {
                 item.place(new BlockPlaceContext(new UseOnContext(p, InteractionHand.MAIN_HAND, mirrored)));
             }
         }
-        Potential.spend(p, .8);
+        Potential.practice(p, .8);
     }
     public static void tend(ServerPlayer p, boolean wide) {
         var hit = aim(p); if (hit.getType() != HitResult.Type.BLOCK) return;
@@ -128,7 +168,7 @@ public final class Applications {
             for (ItemStack stack : loot) if (stack.is(seed) && !stack.isEmpty()) { stack.shrink(1); replant = true; break; }
             p.level().setBlock(pos, replant ? crop.getStateForAge(0) : Blocks.AIR.defaultBlockState(), 3);
             for (ItemStack stack : loot) if (!stack.isEmpty()) drop(p, pos, stack);
-            Potential.spend(p, .5);
+            Potential.practice(p, .5);
         });
         for (ItemEntity item : p.level().getEntitiesOfClass(ItemEntity.class, new AABB(hit.getBlockPos()).inflate(radius + 2))) Physics.velocity(item, p.getEyePosition().subtract(item.position()).normalize().scale(.5));
     }
@@ -146,20 +186,20 @@ public final class Applications {
     }
     public static void burstTerrain(ServerPlayer p, int charge) {
         if (!Settings.TERRAIN.get()) return;
-        int radius = Math.min(16, 3 + Potential.level(p)/15 + charge/25);
+        int radius = Math.min(Potential.area(p), 6 + charge/10);
         // Displace cohesive terrain fragments through the same mass solver; no vanilla blast or radial block deletion.
         int count=Math.min(8,2+Potential.level(p)/2);
         for(int n=0;n<count;n++) {
             double angle=n*Math.PI*2/count;Vec3 direction=new Vec3(Math.cos(angle),-.45,Math.sin(angle)).normalize();
             Vec3 from=p.getEyePosition();var hit=p.level().clip(new ClipContext(from,from.add(direction.scale(radius+4)),ClipContext.Block.OUTLINE,ClipContext.Fluid.NONE,p));
             if(hit.getType()!=HitResult.Type.BLOCK)continue;
-            int massRadius=Math.min(5,1+charge/35);MassJobs.capture(p,hit.getBlockPos(),massRadius,Math.min(Potential.blocks(p)/count,Settings.TERRAIN_BUDGET.get()),body->{if(body!=null){body.release();Physics.launch(p,body,body.position().subtract(p.position()).normalize().add(0,.6,0).scale(Math.min(4,Potential.force(p)*.4)));}});
+            int massRadius=Math.min(8,2+charge/20);MassJobs.capture(p,hit.getBlockPos(),massRadius,Math.min(Potential.blocks(p)/count,4096),body->{if(body!=null){body.release();Physics.launch(p,body,body.position().subtract(p.position()).normalize().add(0,.6,0).scale(Math.min(4,Potential.force(p)*.4)));}});
         }
     }
     public static void edge(ServerPlayer p, Intent.Edge shape, Vec3 anchor, Vec3 previous) {
         Vec3 eye = p.getEyePosition(), look = p.getLookAngle(); double reach = Potential.reach(p);
         Vec3 right = look.cross(new Vec3(0, 1, 0)); if (right.lengthSqr() < .01) right = new Vec3(1, 0, 0); right = right.normalize();
-        double width = 1 + Potential.level(p) * .06;
+        double width = .3 + Potential.output(p)*Potential.level(p)*.06;
         List<Segment> segments = new ArrayList<>();
         switch (shape) {
             case LINE -> segments.add(new Segment(anchor == null ? eye : anchor, aim(p).getLocation()));
@@ -175,10 +215,11 @@ public final class Applications {
         for (Segment s : segments) {
             for (Entity e : p.level().getEntities(p, new AABB(s.from, s.to).inflate(.5), e -> Physics.allowed(p, e))) {
                 if (e.getBoundingBox().inflate(.4).clip(s.from, s.to).isEmpty() || !victims.add(e.getUUID())) continue;
-                if (e instanceof Projectile) { e.discard(); continue; }
+                if (e instanceof Projectile) { Physics.impulse(p,e,look.scale(Potential.force(p)*3)); continue; }
                 if (e instanceof Sheep sheep && sheep.readyForShearing()) { sheep.shear(SoundSource.PLAYERS); continue; }
                 if (shape == Intent.Edge.SCISSOR && e instanceof Mob mob) mob.dropLeash(true, true);
-                e.hurt(p.damageSources().indirectMagic(p,p), (float)Math.min(Settings.MAX_COLLISION_DAMAGE.get(),2+Potential.force(p)*5));
+                e.hurt(p.damageSources().indirectMagic(p,p), (float)Math.min(Settings.MAX_COLLISION_DAMAGE.get(),2+Potential.force(p)*8)); // Magic bypasses armor; resistance and other defenses still apply.
+                Physics.impulse(p,e,look.scale(Potential.force(p)*.8));
             }
             Vec3 delta = s.to.subtract(s.from); int steps = Math.min(512, Mth.ceil(delta.length() * 3));
             for (int i = 0; i <= steps && visited.size() < Settings.TERRAIN_BUDGET.get(); i++) {
@@ -187,7 +228,7 @@ public final class Applications {
             }
         }
         dev.chronicle.world.WorldActions.enqueue(p,visited,pos->cutBlock(p,pos));
-        Potential.spend(p, 1 + segments.size() * .6 + victims.size() * .3);
+        Potential.practice(p, 1 + segments.size() * .6 + victims.size() * .3);
     }
     private record Segment(Vec3 from, Vec3 to) {}
     private static void cutBlock(ServerPlayer p, BlockPos pos) {

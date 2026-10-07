@@ -20,21 +20,25 @@ import java.util.*;
 /** One cached GPU mesh per render layer, built from actual resource-pack block quads. */
 public final class MatterRenderer extends EntityRenderer<MatterBody> {
     private static final Map<MatterBody,Mesh> CACHE=new IdentityHashMap<>();
+    private static int bakeBudget=2048;
+    public static void beginFrame(){bakeBudget=2048;}
     public MatterRenderer(EntityRendererProvider.Context context){super(context);}
     public static void clear(){if(!RenderSystem.isOnRenderThread()){RenderSystem.recordRenderCall(MatterRenderer::clear);return;}for(Mesh mesh:CACHE.values())mesh.close();CACHE.clear();}
     @Override public void render(MatterBody body,float yaw,float partial,PoseStack pose,MultiBufferSource buffers,int light){
         if(body.cells().isEmpty())return;
         if(body.tickCount%60==0){var iterator=CACHE.entrySet().iterator();while(iterator.hasNext()){var row=iterator.next();if(!row.getKey().isAlive()){row.getValue().close();iterator.remove();}}}
-        Mesh mesh=CACHE.get(body);if(mesh==null||mesh.revision!=body.revision()){if(mesh!=null)mesh.close();mesh=bake(body,light);CACHE.put(body,mesh);}
+        Mesh mesh=CACHE.get(body);if(mesh==null||mesh.revision!=body.revision()){if(mesh!=null)mesh.close();mesh=new Mesh(body);CACHE.put(body,mesh);}
+        int work=Math.min(1024,Math.min(bakeBudget,body.mass()-mesh.cursor));
+        if(work>0){bakePage(body,light,mesh,work);bakeBudget-=work;}
         pose.pushPose();pose.mulPose(Axis.YP.rotationDegrees(-90*body.turn()));pose.translate(-body.extent().getX()/2.,0,-body.extent().getZ()/2.);
         float brightness=.35f+.65f*Math.max(LightTexture.block(light),LightTexture.sky(light))/15f;RenderSystem.setShaderColor(brightness,brightness,brightness,1);
-        for(var row:mesh.layers.entrySet()){row.getKey().setupRenderState();row.getValue().bind();row.getValue().drawWithShader(pose.last().pose(),RenderSystem.getProjectionMatrix(),RenderSystem.getShader());VertexBuffer.unbind();row.getKey().clearRenderState();}
+        for(var row:mesh.layers.entrySet()){row.getKey().setupRenderState();for(var buffer:row.getValue()){buffer.bind();buffer.drawWithShader(pose.last().pose(),RenderSystem.getProjectionMatrix(),RenderSystem.getShader());VertexBuffer.unbind();}row.getKey().clearRenderState();}
         RenderSystem.setShaderColor(1,1,1,1);pose.popPose();super.render(body,yaw,partial,pose,buffers,light);
     }
-    private static Mesh bake(MatterBody body,int light){
-        Minecraft mc=Minecraft.getInstance();Map<RenderType,BufferBuilder> builders=new LinkedHashMap<>();Map<BlockPos,MatterBody.Cell> cells=new HashMap<>();for(var cell:body.cells())cells.put(cell.offset(),cell);
+    private static void bakePage(MatterBody body,int light,Mesh mesh,int count){
+        Minecraft mc=Minecraft.getInstance();Map<RenderType,BufferBuilder> builders=new LinkedHashMap<>();Map<BlockPos,MatterBody.Cell> cells=mesh.cells;
         PoseStack pose=new PoseStack();RandomSource random=RandomSource.create();
-        for(var cell:body.cells()) {
+        for(var cell:body.cells().subList(mesh.cursor,mesh.cursor+count)) {
             if(!cell.state().getFluidState().isEmpty() && cell.state().getRenderShape()!=RenderShape.MODEL){
                 var fluid=net.minecraftforge.client.extensions.common.IClientFluidTypeExtensions.of(cell.state().getFluidState());
                 var sprite=mc.getTextureAtlas(InventoryMenu.BLOCK_ATLAS).apply(fluid.getStillTexture());
@@ -56,7 +60,7 @@ public final class MatterRenderer extends EntityRenderer<MatterBody> {
                 pose.popPose();
             }
         }
-        Mesh mesh=new Mesh(body.revision());for(var row:builders.entrySet()){var data=row.getValue().end();VertexBuffer buffer=new VertexBuffer(VertexBuffer.Usage.STATIC);buffer.bind();buffer.upload(data);VertexBuffer.unbind();mesh.layers.put(row.getKey(),buffer);}return mesh;
+        mesh.cursor+=count;for(var row:builders.entrySet()){var data=row.getValue().end();VertexBuffer buffer=new VertexBuffer(VertexBuffer.Usage.STATIC);buffer.bind();buffer.upload(data);VertexBuffer.unbind();mesh.layers.computeIfAbsent(row.getKey(),k->new ArrayList<>()).add(buffer);}
     }
     private static void box(BlockPos pos,Map<BlockPos,MatterBody.Cell> cells,BufferBuilder builder,net.minecraft.client.renderer.texture.TextureAtlasSprite sprite,int color,float alpha){
         int[][][] faces={{{0,0,1},{1,0,1},{1,0,0},{0,0,0}},{{0,1,0},{1,1,0},{1,1,1},{0,1,1}},{{1,0,0},{1,1,0},{0,1,0},{0,0,0}},{{0,0,1},{0,1,1},{1,1,1},{1,0,1}},{{0,0,0},{0,1,0},{0,1,1},{0,0,1}},{{1,0,1},{1,1,1},{1,1,0},{1,0,0}}};
@@ -67,6 +71,12 @@ public final class MatterRenderer extends EntityRenderer<MatterBody> {
         float shade=quad.isShade()?body.level().getShade(quad.getDirection(),true):1;
         builder.putBulkData(pose.last(),quad,((color>>16)&255)/255f*shade,((color>>8)&255)/255f*shade,(color&255)/255f*shade,LightTexture.FULL_BRIGHT,OverlayTexture.NO_OVERLAY);
     }
-    private static final class Mesh implements AutoCloseable{final int revision;final Map<RenderType,VertexBuffer> layers=new LinkedHashMap<>();Mesh(int revision){this.revision=revision;}public void close(){for(var buffer:layers.values())buffer.close();}}
+    private static final class Mesh implements AutoCloseable {
+        final int revision;int cursor;
+        final Map<RenderType,List<VertexBuffer>> layers=new LinkedHashMap<>();
+        final Map<BlockPos,MatterBody.Cell> cells=new HashMap<>();
+        Mesh(MatterBody body){revision=body.revision();for(var cell:body.cells())cells.put(cell.offset(),cell);}
+        public void close(){for(var layer:layers.values())for(var buffer:layer)buffer.close();layers.clear();cells.clear();}
+    }
     @Override public ResourceLocation getTextureLocation(MatterBody body){return InventoryMenu.BLOCK_ATLAS;}
 }

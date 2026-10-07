@@ -116,12 +116,11 @@ public final class PhysicsAuditTests {
                 helper.assertTrue(hold != null, "The compression fixture must be grippable");
                 float health = target.getHealth();
                 for (int tick = 0; tick < 24; tick++) {
-                    // This test isolates the damage multiplier; overuse is covered by its own tests.
-                    Potential.data(owner).putDouble("strain", 0);
+                    // Isolate the configured damage multiplier from progression.
                     boolean maintained = hold.steer(owner, target.getBoundingBox().getCenter(), true);
                     helper.assertTrue(maintained, "The fixture grip must remain stable: tick=" + tick
                         + ", alive=" + target.isAlive() + ", health=" + target.getHealth()
-                        + ", strain=" + Potential.strain(owner) + ", level=" + Potential.level(owner)
+                        + ", level=" + Potential.level(owner)
                         + ", output=" + Potential.output(owner));
                     hold.compress(owner, 2);
                 }

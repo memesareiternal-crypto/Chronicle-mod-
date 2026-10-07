@@ -84,7 +84,7 @@ public final class Physics {
                 double resistance=mass*.3;
                 for(LivingEntity living:occupants){double boss=living instanceof net.minecraft.world.entity.boss.enderdragon.EnderDragon||living instanceof net.minecraft.world.entity.boss.wither.WitherBoss||living instanceof net.minecraft.world.entity.monster.warden.Warden?Settings.BOSS_RESISTANCE.get():1;resistance+=(living.getHealth()*.08+living.getMaxHealth()*.02+living.getArmorValue()*.2+living.getDeltaMovement().length()*.2)*boss;}
                 resistance*=Settings.RESISTANCE.get();
-                double capacity = (5 + Potential.force(p) * 18)*Settings.GRIP_STRENGTH.get()*Potential.control(p)/(1+entity.distanceTo(p)/Math.max(1,Potential.reach(p))*.3);
+                double capacity = (5 + Potential.force(p) * 18)*Settings.GRIP_STRENGTH.get()/(1+entity.distanceTo(p)/Math.max(1,Potential.reach(p))*.3);
                 struggle = Math.max(0, struggle + (resistance / capacity - 1) * .025 + p.getRandom().nextDouble() * .004);
                 if (struggle > 1) return false;
             }
@@ -92,9 +92,9 @@ public final class Physics {
             if (entity instanceof Mob mob) mob.setNoAi(true);
             if (entity instanceof AbstractHurtingProjectile fireball) { fireball.xPower=0;fireball.yPower=0;fireball.zPower=0; }
             Vec3 delta = (anchor==null?destination:anchor).subtract(entity.getBoundingBox().getCenter());
-            double acceleration = Math.min(.8, (.5 + Potential.force(p)) * Settings.GRIP_STRENGTH.get()*Potential.control(p) / Math.pow(mass,.27));
-            Vec3 v = entity.getDeltaMovement().scale(.7).add(delta.scale(acceleration*.35));
-            double cap = Math.min(5,1+Math.sqrt(Potential.force(p))); if (v.length() > cap) v = v.normalize().scale(cap);
+            double acceleration = Math.min(1.4, (.8 + Math.sqrt(Potential.force(p))) * Settings.GRIP_STRENGTH.get() / Math.pow(mass,.08));
+            Vec3 v = entity.getDeltaMovement().scale(.18).add(delta.scale(acceleration*.65));
+            double cap = Math.min(7,2+Math.sqrt(Potential.force(p))*1.5); if (v.length() > cap) v = v.normalize().scale(cap);
             Vec3 actual=rigid?v.scale(.3):v;track(p,entity,actual);velocity(entity,actual);entity.fallDistance=0;
             if(entity instanceof ServerPlayer controlledPlayer)FlightGuard.allowControlledFlight(controlledPlayer);
             return true;
@@ -104,8 +104,8 @@ public final class Physics {
         public boolean anchored(){return anchor!=null;}
         public boolean compress(ServerPlayer p,double output){
             if(closed||!entity.isAlive())return false;
-            double work=Potential.force(p)*Math.max(.1,output)*Potential.control(p)/Math.max(1,Math.cbrt(mass(entity)));
-            compressionWork+=work;Potential.spend(p,.15+work*.3);
+            double work=Potential.force(p)*Math.max(.1,output)/Math.max(1,Math.cbrt(mass(entity)));
+            compressionWork+=work;Potential.practice(p,.15+work*.3);
             List<LivingEntity> occupants=livingMembers(entity);
             occupants.removeIf(member->member==p);
             if(!occupants.isEmpty()) {
@@ -188,7 +188,7 @@ public final class Physics {
             if (blocked.length() > .65 && flight.wallReady<=e.tickCount) {
                 flight.wallReady=e.tickCount+10;
                 if (e instanceof LivingEntity) e.hurt(level.damageSources().flyIntoWall(), impactDamage(e,blocked.length()));
-                if(!controlled(e)){iterator.remove();continue;}
+                if(!controlled(e)){if(owner!=null)Impacts.resolve(owner,e,flight.previous,flight.velocity);iterator.remove();continue;}
             }
             flight.previous = e.position(); flight.velocity = e.getDeltaMovement();
         }

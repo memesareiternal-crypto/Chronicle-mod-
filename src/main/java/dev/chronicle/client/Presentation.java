@@ -27,27 +27,39 @@ import java.util.*;
 public final class Presentation {
     private static final KeyMapping GRIP = new KeyMapping("key.psychokinesis.focus", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_G, "key.categories.psychokinesis");
     private static final KeyMapping BARRIER = new KeyMapping("key.psychokinesis.barrier", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_B, "key.categories.psychokinesis");
+    private static final KeyMapping FORCE = new KeyMapping("key.psychokinesis.force", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_V, "key.categories.psychokinesis");
+    private static Wire.FlightState flightState=new Wire.FlightState(false,0,0,0,false);
+    private static boolean predictedFlight, oldGravity;
     private static final Map<Integer, Wire.View> VIEWS = new HashMap<>();
     private static final List<Visual> EFFECTS = new ArrayList<>();
     private static int lastButtons = -1;
-    @SubscribeEvent public static void keys(RegisterKeyMappingsEvent e) { e.register(GRIP); e.register(BARRIER); MinecraftForge.EVENT_BUS.register(new Runtime()); }
+    @SubscribeEvent public static void keys(RegisterKeyMappingsEvent e) { e.register(GRIP); e.register(BARRIER); e.register(FORCE); MinecraftForge.EVENT_BUS.register(new Runtime()); }
     @SubscribeEvent public static void renderers(EntityRenderersEvent.RegisterRenderers e) { e.registerEntityRenderer(Chronicle.MATTER.get(), MatterRenderer::new); e.registerEntityRenderer(Chronicle.CRYSTAL.get(), CrystalRenderer::new); }
     @SubscribeEvent public static void reload(ModelEvent.BakingCompleted e){MatterRenderer.clear();}
     @SubscribeEvent public static void items(BuildCreativeModeTabContentsEvent e) { if (e.getTabKey() == CreativeModeTabs.SPAWN_EGGS) e.accept(Chronicle.CRYSTAL_EGG.get()); }
     @SubscribeEvent public static void eggColors(RegisterColorHandlersEvent.Item e){e.register((stack,index)->index==0?0x171B26:0xEDEBF8,Chronicle.CRYSTAL_EGG.get());}
+    public static void receive(Wire.FlightState state) {flightState=state;if(!state.active())predictFlight(0);}
+    private static void predictFlight(int bits) {
+        Minecraft mc=Minecraft.getInstance();if(mc.player==null)return;
+        if(flightState.active()&&!mc.player.isPassenger()){
+            if(!predictedFlight){oldGravity=flightState.originalGravity();predictedFlight=true;}
+            mc.player.setNoGravity(true);mc.player.fallDistance=0;
+            mc.player.setDeltaMovement(dev.chronicle.power.FlightControl.integrate(mc.player.getDeltaMovement(),mc.player.getLookAngle(),new Intent(bits,0),flightState.speed(),flightState.acceleration(),flightState.braking()));
+        }else if(predictedFlight){mc.player.setNoGravity(oldGravity);mc.player.fallDistance=0;predictedFlight=false;}
+    }
     public static void receive(Wire.View view) { VIEWS.put(view.entity(),view); }
     public static void receive(Wire.Snapshot snapshot){Minecraft mc=Minecraft.getInstance();if(mc.level!=null&&mc.level.getEntity(snapshot.entity()) instanceof dev.chronicle.entity.MatterBody body){var buffer=new net.minecraft.network.FriendlyByteBuf(io.netty.buffer.Unpooled.wrappedBuffer(snapshot.cells()));try{body.readSpawnData(buffer);}finally{buffer.release();}}}
     public static void receive(Wire.Effect effect) { Minecraft mc=Minecraft.getInstance(); if(mc.level!=null) EFFECTS.add(new Visual(effect,mc.level.getGameTime())); }
     private static int buttons() {
         Minecraft mc = Minecraft.getInstance(); if (mc.screen != null || !mc.isWindowActive()) return 0;
-        return (GRIP.isDown()?Intent.GRIP:0) | (mc.options.keyUse.isDown()?Intent.ACT:0) | (mc.options.keyShift.isDown()?Intent.SNEAK:0) | (mc.options.keyJump.isDown()?Intent.JUMP:0) | (mc.options.keySprint.isDown()?Intent.SPRINT:0) | (BARRIER.isDown()?Intent.BARRIER:0) | (mc.options.keyUp.isDown()?Intent.FORWARD:0) | (mc.options.keyDown.isDown()?Intent.BACK:0) | (mc.options.keyLeft.isDown()?Intent.LEFT:0) | (mc.options.keyRight.isDown()?Intent.RIGHT:0) | (mc.options.keyAttack.isDown()?Intent.ATTACK:0);
+        return (GRIP.isDown()?Intent.GRIP:0) | (mc.options.keyUse.isDown()?Intent.ACT:0) | (mc.options.keyShift.isDown()?Intent.SNEAK:0) | (mc.options.keyJump.isDown()?Intent.JUMP:0) | (mc.options.keySprint.isDown()?Intent.SPRINT:0) | (BARRIER.isDown()?Intent.BARRIER:0) | (mc.options.keyUp.isDown()?Intent.FORWARD:0) | (mc.options.keyDown.isDown()?Intent.BACK:0) | (mc.options.keyLeft.isDown()?Intent.LEFT:0) | (mc.options.keyRight.isDown()?Intent.RIGHT:0) | (mc.options.keyAttack.isDown()?Intent.ATTACK:0) | (FORCE.isDown()?Intent.FORCE:0);
     }
     public static final class Runtime {
         @SubscribeEvent public void tick(TickEvent.ClientTickEvent e) {
             if (e.phase != TickEvent.Phase.END) return;
             Minecraft mc = Minecraft.getInstance(); if (mc.player == null) { lastButtons = -1; return; }
             var state = VIEWS.get(mc.player.getId()); if (state == null || !state.acquired()) return;
-            int bits = buttons(); if (bits != lastButtons || bits != 0) { Wire.CHANNEL.sendToServer(new Wire.Input(bits, 0)); lastButtons = bits; }
+            int bits = buttons(); predictFlight(bits); if (bits != lastButtons || bits != 0) { Wire.CHANNEL.sendToServer(new Wire.Input(bits, 0)); lastButtons = bits; }
         }
         @SubscribeEvent public void scroll(InputEvent.MouseScrollingEvent e) {
             Minecraft mc = Minecraft.getInstance(); if (mc.player == null || mc.screen != null) return;
@@ -57,12 +69,13 @@ public final class Presentation {
         @SubscribeEvent public void interaction(InputEvent.InteractionKeyMappingTriggered e) {
             Minecraft mc=Minecraft.getInstance(); if(mc.player==null) return;
             var state=VIEWS.get(mc.player.getId());
-            if(state!=null && state.active() && (e.isUseItem() || (e.isAttack()&&(state.holding()||mc.options.keyUse.isDown())))) { e.setSwingHand(false); e.setCanceled(true); }
+            if(state!=null && state.active() && (e.isUseItem() || (e.isAttack()&&(state.holding()||mc.options.keyUse.isDown()||FORCE.isDown())))) { e.setSwingHand(false); e.setCanceled(true); }
         }
-        @SubscribeEvent public void logout(ClientPlayerNetworkEvent.LoggingOut e) { VIEWS.clear(); EFFECTS.clear(); MatterRenderer.clear(); lastButtons = -1; }
+        @SubscribeEvent public void logout(ClientPlayerNetworkEvent.LoggingOut e) { VIEWS.clear(); EFFECTS.clear(); flightState=new Wire.FlightState(false,0,0,0,false); predictedFlight=false; MatterRenderer.clear(); lastButtons = -1; }
         @SubscribeEvent public void output(RenderGuiEvent.Post e){Minecraft mc=Minecraft.getInstance();if(mc.player==null||mc.options.hideGui)return;var state=VIEWS.get(mc.player.getId());if(state==null||!state.active())return;int width=182,x=mc.getWindow().getGuiScaledWidth()/2-width/2;boolean survival=mc.gameMode!=null&&mc.gameMode.canHurtPlayer();int extra=survival?Math.max(0,(int)Math.ceil((mc.player.getMaxHealth()+mc.player.getAbsorptionAmount())/20.)-1)*10:0;int y=mc.getWindow().getGuiScaledHeight()-(survival?52+extra:35);e.getGuiGraphics().fill(x-1,y-1,x+width+1,y+4,0x66000000);int filled=Math.round(width*state.output());for(int i=0;i<filled;i++){int color=net.minecraft.util.Mth.hsvToRgb((float)((i/(double)width+mc.player.tickCount*.002)%1),.4f,1f);e.getGuiGraphics().fill(x+i,y,x+i+1,y+3,0xBB000000|color);}}
         @SubscribeEvent public void world(RenderLevelStageEvent e) {
             if (e.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) return;
+            MatterRenderer.beginFrame();
             Minecraft mc = Minecraft.getInstance(); if (mc.level == null || mc.player == null) return;
             var pose = e.getPoseStack(); Vec3 eye = e.getCamera().getPosition(); pose.pushPose(); pose.translate(-eye.x,-eye.y,-eye.z);
             var lines = mc.renderBuffers().bufferSource().getBuffer(PsychicRenderType.FILM);

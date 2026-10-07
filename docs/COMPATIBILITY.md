@@ -1,32 +1,43 @@
 # Compatibility and verification limits
 
-The 2.0.0 engine passes 38 GameTests. External mods, resource packs, and live multiplayer still require their own acceptance pass; automated tests do not establish every mod combination.
+Version 3.0.0 passes 51 Minecraft GameTests plus real-client flight and renderer checks. These do not establish every external mod or multiplayer combination.
 
-## Rendering, matter, and world integration
+## Damage and projectiles
 
-- Prismatic surfaces draw after translucent blocks with additive blending and read-only depth. The films do not darken the scene or constrain the camera. Resource-pack and shader-mod translucency ordering still needs integration testing.
-- Moving ordinary blocks use their actual baked resource-pack textures in cached GPU meshes. Animated block-entity-only models use static boxes textured with the model's particle sprite; custom chest/machine animations are not carried as live block-entity renderers. Their stored server NBT remains available for placement.
-- Source water/lava cells use still-fluid textures and the same inventory-safe carrier representation. They are grid volumes rather than freeform fluid simulation.
-- Carrier collision uses coarse bounds. Concave per-cell collision, elastic structural deformation, and material-dependent support collapse are not part of this build. The latest user request excludes arbitrary tilting and terrain twisting; rigid yaw quarter turns remain available.
-- Standard block-state rotation is preserved. Modded block entities can store additional orientation, network, or multiblock relationships in their own NBT; those need mod-specific checks after relocation.
-- Chunk availability, standard edit permissions, Forge block-break vetoes, and queued-cell reservations apply. Third-party claim systems and multiblock machine placement paths have not been comprehensively validated.
-- Boss health, mass, armor, and passenger resistance participate in grips. Scripted boss motion, multipart hitboxes, and bespoke attacks can override ordinary movement; no boss-specific cinematic behavior is claimed.
-- Radar uses vanilla glowing and can be visible to other clients.
+Personal reinforcement reduces ordinary Forge living-hurt amounts directly, including melee, explosions, magic and attacks without projectile entities. B activates immediately. Generic mod-style magic damage is tested. Sources deliberately bypassing invulnerability (void/administrative death) are excluded.
 
-## Projectiles and TaCZ
+Passive incoming-projectile reversal is configurable. Known vanilla projectiles have damage estimates; unknown implementations may supply numeric persistent `chronicle_damage`, or retain authoritative hurt-event evaluation. Their special movement, explosion or gun behavior can need an adapter. Orbiting real debris and projected fields use geometric crossing and finite thresholds.
 
-Vanilla projectile capture, barrier interception, redirection, and release use real entities. Unknown projectile implementations can supply a numeric `chronicle_damage` persistent estimate. Otherwise they retain impact-time Forge damage evaluation rather than receiving a guessed damage value.
+The optional TaCZ adapter resolves `EntityKineticBullet.getDamage(Vec3)` and `EntityHurtByGunEvent.Pre` with attacker, base damage and headshot multiplier. It evaluates combined damage before armor-piercing splits; ordinary damage resistance still applies to uncanceled Forge hurt events. Different TaCZ versions, live gun packs and custom hitscan/AP/explosive paths remain untested. Mods that apply damage outside ordinary Forge living-hurt hooks cannot be guaranteed compatible.
 
-The optional TaCZ adapter was checked against its official 1.20.1 source: [EntityKineticBullet](https://github.com/MCModderAnchor/TACZ/blob/1.20.1/src/main/java/com/tacz/guns/entity/EntityKineticBullet.java) exposes `getDamage(Vec3)`, and [EntityHurtByGunEvent](https://github.com/MCModderAnchor/TACZ/blob/1.20.1/src/main/java/com/tacz/guns/api/event/common/EntityHurtByGunEvent.java) exposes the pre-hurt event, attacker, base damage, and headshot multiplier. The bridge uses `getAttacker()` for directional protection and evaluates combined damage before armor-piercing splits. This verifies the integration API, not live TaCZ behavior. Different versions, hitscan paths, explosive/incendiary ammunition, and custom gun packs need installed-mod tests.
+Projected fields suppress/contain blast paths through Forge's detonate event. Mods that perform their own terrain deletion outside that event need their own integration.
 
-## Manual acceptance pass
+## Matter and world edits
 
-1. Awaken near a crystal; check its animated emissive cracks and the prismatic effects under the intended resource pack. Toggle presentation options and concentration.
-2. Crouch-scroll output down/up; verify the unlabeled meter, changed strength/range/group size, and simultaneous vanilla hotbar scrolling.
-3. At stages 1, 2, 6, and 10, grip one/two/dozens/hundreds of mobs; move, add targets, disarm, compress, rotate, pin and throw. Co-moving captured groups must not damage each other.
-4. Move loaded containers, trees, large terrain, a house and source fluids. Obstruct and retry placement; interrupt transfers and restart with an airborne carrier. Check every inventory and block count.
-5. Use two players competing for the same mob, occupied boat, and projectile. Dismount, disconnect, die, and change dimensions while holding. Verify exclusive claims and restored state.
-6. Sustain flight while carrying matter on a dedicated survival server with `allow-flight=false`; verify acceleration, braking, no kick, and unchanged creative permissions.
-7. Test sphere/dome/plane barriers against weak and overwhelming projectiles, remote protection, captured releases, resizing and integrity failure. Repeat with installed TaCZ headshot/AP/hitscan/explosive ammunition.
-8. Exercise crop tending, remote redstone, container deposits, mirrored construction and cutting gestures. Profile hundreds of moving targets and large mesh carriers under the actual modpack.
-9. Sustain output above strain capacity at low and maximum stages. Control must weaken without direct overuse damage.
+- Actual baked resource-pack block quads are cached in bounded GPU mesh pages. Animated block-entity-only renderers use static particle-texture boxes; server NBT is preserved, but custom machine animations do not run while airborne.
+- Fluids use grid cells and still textures, not freeform fluid physics.
+- Small bodies use coarse normal bounds; large bodies use a bounded center collision proxy. Exact concave surface collision, elastic twisting/tilting and structural support simulation are absent. Large bodies can overlap surrounding blocks at their edges.
+- Standard block-state quarter-turn rotation is preserved. Additional machine orientation, multiblock/network relationships and external position references inside modded NBT need installed-mod checks.
+- Loaded-chunk checks, world border, edit permission, Forge break-event vetoes and queued-cell reservations apply. Transfers preserve each cell and its inventory once, including interrupted work. Third-party claim/placement APIs may need adapters.
+- Boss mass, health and armor provide resistance instead of blanket immunity. Scripted movement and multipart implementations can still override ordinary entity steering.
+- Sensing uses brief vanilla glowing, which other clients can see.
+- High counts are bounded, but hundreds of moving modded entities or complex resource-pack quads still need profiling on the intended server/client hardware.
+
+## Rendering and flight
+
+Prismatic surfaces use additive blending/read-only depth after translucent blocks and do not change the camera. Shader-mod ordering and third-party resource packs remain integration checks. Original crystal assets are intact; single-pass animated emission removes the old glow overlay.
+
+Flight uses a shared integrator, real local movement prediction and server-synchronized capabilities; it never grants creative permissions. An isolated actual client test verified keyboard/network movement, sideways/vertical control, hover/braking and restored gravity. Dedicated server latency, anti-cheat mods and competing player-control mods remain unverified.
+
+## Manual acceptance
+
+1. Awaken near a crystal; inspect pulsing white veins, films and block lighting with the intended shader/resource pack.
+2. Crouch-scroll low/high output and verify the unlabeled meter and normal hotbar changes.
+3. Right click groups and terrain without crouching or selecting sections. Test stage 1/2/6/10, aiming, release, disarm, crush and powerful throws.
+4. G gather self/point orbits; V individual/rapid/all launches; verify real debris defense and no accidental force release after a volley.
+5. Raise/flatten ground, drill trenches, burst and throw large masses; inspect craters, secondary preserved debris and inventory counts.
+6. Double Space to fly, move/strafe/rise/descend/brake while carrying matter; test survival on an allow-flight=false dedicated server.
+7. B immediate resistance and projected sphere/dome/plane against ordinary and extreme damage, explosion containment and captured-projectile return.
+8. Test two competing players, boats/passengers, death/dimension/logout/restart recovery, obstructed placement and modded machines.
+9. Install the actual TaCZ/modpack and test headshots, AP, hitscan, explosive ammo and exceptional damage sources.
+10. Sustain repeated maximum output: force and defense must remain stable indefinitely, with no fatigue or recovery.

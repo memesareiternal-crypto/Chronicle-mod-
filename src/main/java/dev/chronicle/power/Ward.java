@@ -22,7 +22,7 @@ public final class Ward {
     private int impactTick=-100,scanOffset;
     public Ward(ServerPlayer p,Vec3 anchor,Entity attachment,boolean plane){this(p,anchor,attachment,plane?Shape.PLANE:Shape.SPHERE);}
     public Ward(ServerPlayer p,Vec3 anchor,Entity attachment,Shape shape){this.anchor=anchor;this.attachment=attachment;this.shape=shape;normal=p.getLookAngle().normalize();maximum=(Settings.BARRIER_HEALTH.get()+(Potential.level(p)-1)*Settings.BARRIER_GROWTH.get())*Potential.strength();health=maximum;}
-    public static double capacity(ServerPlayer p){return (2+Potential.level(p)*Settings.BULLET_CAPACITY.get())*Potential.scale(p)*Potential.strength()*Potential.control(p)*Potential.output(p);}
+    public static double capacity(ServerPlayer p){return (2+Potential.level(p)*Settings.BULLET_CAPACITY.get())*Potential.scale(p)*Potential.strength()*Potential.output(p);}
     public Vec3 center(ServerPlayer p){Vec3 c=attachment!=null&&attachment.isAlive()?attachment.getBoundingBox().getCenter():anchor==null?p.getBoundingBox().getCenter():anchor;return shape==Shape.PLANE&&anchor==null?c.add(normal.scale(2)):c;}
     public Vec3 normal(){return normal;}
     public Shape shape(){return shape;}
@@ -55,7 +55,7 @@ public final class Ward {
         if(!Double.isFinite(damage)||damage<0)return false;
         impact=point;impactTick=p.tickCount;
         double limit=threshold(p);health-=damage;
-        Potential.spend(p,Math.min(damage,limit)*.35);
+        Potential.practice(p,Math.min(damage,limit)*.35);
         if(Settings.SOUNDS.get()&&p.tickCount%3==0)p.level().playSound(null,point.x,point.y,point.z,SoundEvents.AMETHYST_BLOCK_HIT,SoundSource.PLAYERS,.3f,(float)(.7+integrity(p)*.5));
         return damage<=limit&&health>0;
     }
@@ -87,7 +87,6 @@ public final class Ward {
         scanOffset+=Math.max(1,budget);
         Iterator<Physics.Hold> iterator=caught.iterator();int index=0;
         while(iterator.hasNext()) {var hold=iterator.next();double angle=index++*2.399;Vec3 target=center.add(Math.cos(angle)*radius*.65,.3+index*.01,Math.sin(angle)*radius*.65);if(!hold.steer(p,target,false)){hold.close();iterator.remove();} }
-        Potential.spend(p,Settings.BARRIER_MAINTENANCE.get()*Math.pow(radius/Math.max(1,Settings.FIELD_RADIUS.get()),2)*output+caught.size()*.025);
         return health>0;
     }
     public int captured(){return caught.size();}

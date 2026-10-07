@@ -24,6 +24,13 @@ public final class MassJobs {
     public static void capture(ServerPlayer actor,BlockPos start,int radius,int limit,Consumer<MatterBody> completion) {
         enqueue(actor.serverLevel(),new Capture(actor.serverLevel(),actor,start,radius,limit,completion));
     }
+    public static void captureSelection(ServerPlayer actor,List<BlockPos> cells,Consumer<MatterBody> completion){
+        if(cells.isEmpty()){completion.accept(null);return;}
+        var job=new Capture(actor.serverLevel(),actor,cells.get(0),0,cells.size(),completion);
+        job.tree=false;job.frontier.clear();job.seen.clear();
+        for(BlockPos pos:cells)if(job.seen.add(pos.immutable()))job.frontier.add(pos.immutable());
+        enqueue(actor.serverLevel(),job);
+    }
     private static void enqueue(ServerLevel level,Job job) { JOBS.computeIfAbsent(level,k->new ArrayDeque<>()).add(job); }
     public static void shatter(MatterBody body,ServerPlayer actor){if(body.transferring())return;body.transferring(true);enqueue(actor.serverLevel(),new Job(){final ArrayDeque<MatterBody.Cell> cells=new ArrayDeque<>(body.cells());public boolean step(){if(!actor.isAlive()||actor.level()!=body.level()||!body.isAlive())return true;var cell=cells.poll();if(cell==null)return true;net.minecraft.world.level.block.Block.dropResources(cell.state(),actor.serverLevel(),body.blockPosition(),null,actor,net.minecraft.world.item.ItemStack.EMPTY);body.removeCell(cell);return cells.isEmpty();}public void finish(){body.transferring(false);if(body.mass()==0)body.discard();else{body.release();Wire.snapshot(body);}}});}
     public static boolean place(MatterBody body,BlockPos base,ServerPlayer actor) {
@@ -46,7 +53,7 @@ public final class MassJobs {
         final List<BlockPos> locks=new ArrayList<>(), changed=new ArrayList<>();
         Iterator<Map.Entry<BlockPos,BlockState>> iterator;MatterBody body;BlockPos low,high;int stage,notified;boolean failed,tree;
         Capture(ServerLevel level,ServerPlayer actor,BlockPos start,int radius,int limit,Consumer<MatterBody> callback) {
-            this.level=level;this.actor=actor;this.start=start.immutable();this.radius=radius;this.limit=Math.min(32768,limit);this.callback=callback;frontier.add(this.start);
+            this.level=level;this.actor=actor;this.start=start.immutable();this.radius=radius;this.limit=Math.min(32768,limit);this.callback=callback;frontier.add(this.start);seen.add(this.start);
             var seed=level.getBlockState(start);tree=seed.is(BlockTags.LOGS)||seed.is(BlockTags.LEAVES);
         }
         public boolean step() {
@@ -57,7 +64,7 @@ public final class MassJobs {
                     if(selected.isEmpty()){failed=true;return true;}
                     iterator=selected.entrySet().iterator();stage=1;return false;
                 }
-                BlockPos pos=frontier.remove();if(!seen.add(pos)||!WorldAccess.loaded(level,pos)||start.distSqr(pos)>radius*(double)radius)return false;
+                BlockPos pos=frontier.remove();if(!WorldAccess.loaded(level,pos)||(radius>0&&start.distSqr(pos)>radius*(double)radius))return false;
                 var state=level.getBlockState(pos);if(state.isAir()||state.getDestroySpeed(level,pos)<0 || (tree&&!state.is(BlockTags.LOGS)&&!state.is(BlockTags.LEAVES)))return false;
                 if(!state.getFluidState().isEmpty()&&!state.getFluidState().isSource())return false;
                 BlockPos nextLow=low==null?pos:new BlockPos(Math.min(low.getX(),pos.getX()),Math.min(low.getY(),pos.getY()),Math.min(low.getZ(),pos.getZ()));
@@ -65,7 +72,7 @@ public final class MassJobs {
                 long volume=(long)(nextHigh.getX()-nextLow.getX()+1)*(nextHigh.getY()-nextLow.getY()+1)*(nextHigh.getZ()-nextLow.getZ()+1);
                 if(volume>Settings.STRUCTURE_LIMIT.get())return false;
                 low=nextLow;high=nextHigh;
-                selected.put(pos,state);if(radius>0)for(Direction d:Direction.values())frontier.add(pos.relative(d));return false;
+                selected.put(pos,state);if(radius>0)for(Direction d:Direction.values()){BlockPos next=pos.relative(d);if(start.distSqr(next)<=radius*(double)radius&&seen.add(next))frontier.add(next);}return false;
             }
             if(stage==1) {
                 if(iterator.hasNext()) {var row=iterator.next();var pos=row.getKey();if(!WorldAccess.loaded(level,pos)||reserved(level).contains(pos)||level.getBlockState(pos)!=row.getValue()||!WorldAccess.edit(actor,pos)||(level.getBlockEntity(pos)!=null&&!Settings.INVENTORIES.get())){failed=true;return true;}reserved(level).add(pos);locks.add(pos);return false;}

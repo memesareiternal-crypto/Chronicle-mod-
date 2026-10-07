@@ -1,39 +1,47 @@
 # Architecture
 
-All gameplay lives under `dev.chronicle`. Extend the shared manipulation systems rather than adding selectable abilities.
+Gameplay lives under `dev.chronicle`. Build interactions from shared forces and matter, not selectable abilities.
 
-## Authority and input
+## Input and authority
 
-`Presentation` samples right click, left click, the optional G grip, B barrier control, movement modifiers, and wheel direction. `Intent` bounds the button mask and wheel sign. `Wire.Input` never carries target IDs, coordinates, damage, or world edits: the server chooses targets and computes results.
+`Presentation` samples G (gather/orbit), V (force/launch), B (protection), mouse buttons, movement and wheel sign. `Intent` bounds the 12-bit mask. Input packets contain no target IDs, coordinates, damage or world edits; the server chooses targets and performs edits.
 
-`Concentration` interprets held state, target context, charge duration, aim movement, output, and modifiers. It owns active grips, pending selections, barrier, flight, and pin anchors. Sneak-scroll adjusts persistent output globally while vanilla hotbar scrolling remains enabled. The only graphical interface is an unlabeled output meter; there is no ability selector or level indicator.
+`Concentration` owns reversible grips, pending terrain jobs, orbital centers, personal protection, projected wards and flight. Output automatically determines group/terrain radius and capacity. Crouch-scroll adjusts output without canceling vanilla hotbar scrolling. Target, tap/hold duration, aim motion and modifiers supply context.
 
-## Force, mass, ownership, and collision
+G gathering persists after key release. Right click temporarily steers an orbit at the crosshair. V launches one member every three ticks or the full swarm with crouch. Volley gestures stay distinct from empty-hand force gestures, preventing an exhausted swarm from becoming an unintended explosion.
 
-`Physics.Hold` exclusively claims the root vehicle and its passenger snapshot. It validates topology, includes passenger mass and living resistance, and reversibly suspends root AI/gravity. Steering uses position error, current velocity, mass, distance, output, strain, armor, and boss resistance. Pinning uses a fixed world anchor. Compression accumulates work against mass and durability instead of periodically applying a fixed damage amount.
+## Force, impacts and defense
 
-The shared momentum ledger covers held steering, pressure impulses, and throws. Swept bounds find entity impacts; blocked velocity components determine wall impact energy. Claims are released from the original snapshot, competing owners cannot overwrite them, and co-moving held group members do not harm each other. Projectile impact hooks suppress native impacts while captured; release restores motion and attribution without accumulating arrow damage buffs. Suspension markers recover orphaned gravity, AI, and fireball acceleration after reload.
+`Physics.Hold` exclusively claims root vehicles and their passenger snapshots. It validates topology, combines mass/armor/health/boss resistance, suspends AI/gravity, and restores original state on release. A damped position-error solver responds to aim changes. Compression accumulates work; disarming removes real items before spawning them as loose equipment.
 
-`FlightControl` applies acceleration, directional steering, braking, and strain to the player. It preserves survival abilities. `FlightGuard` clears only vanilla floating timeout fields while legitimate server-controlled movement is active; it neither enables global flight nor grants creative permissions.
+The momentum ledger handles swept entity impacts, blocked-axis wall impacts and cooldowns. Held groups do not attack one another. `Impacts` combines mass, material and speed, applies nearby knockback/damage, sends restrained pressure waves, and queues preserved secondary terrain displacement. A per-owner cooldown bounds repeated impact edits.
 
-## Selection and grouped matter
+`PersonalDefense` reduces Forge damage-event amounts directly, including attacks with no projectile entity. B reinforces immediately. Output, stage, strength and extreme incoming energy determine resistance; no fatigue state exists. Optional passive defense reverses appropriately weak approaching projectiles. Orbiting real debris intercepts crossing projectiles and qualifying damage paths.
 
-`Applications` supplies server ray targeting, contextual group acquisition, pressure, cutting geometry, remote block interaction, inventory deposit, crop tending, and construction. `MassJobs` grows connected selections, validates and reserves cells, transfers snapshots, and queues deployment. `WorldActions` shares the same per-dimension work budget for other edits. Loaded-chunk checks, standard edit permissions, and Forge vetoes apply before mutations.
+`Ward` supplies finite sphere, dome and plane geometry for projected protection, capture, return and compression. `ExplosionEvent.Detonate` removes affected blocks/entities whose blast paths cross a surviving ward, including containing an internal blast. Unknown projectile damage remains subject to authoritative hurt-event handling.
 
-`MatterBody` contains palette-based states, relative positions, block-entity NBT, bounds, mass, hardness, owner, velocity, and quarter-turn orientation in one entity. Extraction and placement transfer cell ownership incrementally; interrupted work preserves remaining cells. Inventory data stays server-side. Bounding-volume and work limits are independent of cell-count progression.
+## Flight
 
-`MatterRenderer` caches actual baked block quads in GPU vertex buffers per render layer and rebuilds on snapshot revision or resource reload. Source fluids use their still texture; animated block-entity-only models use static particle-texture boxes. The server simulates one carrier rather than an entity for each cell. Arbitrary tilt and terrain twisting are outside the latest requested scope.
+Double Space toggles `FlightControl`. A shared client/server integrator computes aim-relative acceleration, strafe, ascent/descent, braking and hover. `Wire.FlightState` sends authoritative speed, acceleration, braking and original gravity; local prediction actually moves the vanilla client instead of repeatedly overwriting it with server velocity packets.
 
-## Barriers and presentation
+Survival permissions remain unchanged. `FlightGuard` clears only the legitimate controlled player's floating timeout. Logout, death, dimension change, deactivation and orphan recovery restore gravity.
 
-`Ward` shares sphere, dome, and finite-plane geometry between boundary crossing and damage interception. It follows the player or another entity, or anchors at a world position. Dimensions, invested charge, output, strain, incoming energy, and finite integrity determine protection. Projectiles can penetrate, weaken the construct, or enter reversible capture. Captured projectiles orbit and can be redirected on dismissal.
+## Terrain, transport and rendering
 
-`Wire.View` sends barrier geometry, integrity, impact, output, and flight/holding state. `Wire.Effect` carries short-lived pressure releases; `Wire.Snapshot` sends compact matter palettes without inventories. `PsychicGeometry` renders smooth prismatic surfaces and pressure ripples through a dedicated additive, read-only-depth render layer after translucent world blocks. This avoids darkening the view behind the films. The camera remains under ordinary player control. The 182-pixel unlabeled output meter sits above the hotbar/experience area. The resonant crystal uses corrected source artwork with animated emissive cracks. Presentation toggles affect effects, aura, and restrained sounds; powers send no particle packets.
+`Applications` provides ray targeting, automatic group selection, coherent debris gathering, directed/radial pressure, terrain raising/flattening, concentrated drilling/shearing, farming, remote interaction and construction.
 
-## Persistence, progression, and compatibility
+`MassJobs` performs connected BFS or explicit-cell extraction, permission validation, reservation, cell transfer and placement over ticks. Seen cells are marked when queued, avoiding repeated BFS frontier work. `WorldActions` shares the dimension budget for other edits. Each cell has exactly one authoritative owner throughout transfer. Stored block-entity NBT stays server-side and survives interruption.
 
-`Potential` stores acquisition, activation, stage, experience, strain, output, and color in persistent player data and copies it through death. Ten stages scale force and target/block capacity strongly; choosing lower output makes the same power precise. Overexertion reduces control without dealing self-damage. Use and online-time experience obey the configurable leveling multiplier.
+`MatterBody` is one physical carrier with palette states, relative positions, NBT, bounds, mass, material hardness, owner and rigid quarter-turn rotation. Large bodies use a bounded center collision proxy; small bodies use normal bounds. Client positions interpolate server updates.
 
-`GunBridge` optionally resolves TaCZ's public bullet and pre-hurt APIs, including attacker-aware barrier geometry and combined headshot-adjusted damage before armor-piercing splits. Unrecognized APIs retain standard Forge impact/hurt fallback. See [compatibility](docs/COMPATIBILITY.md) for verified APIs and untested mod combinations.
+`MatterRenderer` builds actual resource-pack block quads in bounded mesh pages (2,048 shared cells/frame), removes occluded faces, uploads GPU buffers and caches them by revision. Source fluids use still textures; custom animated block entities use static particle-texture boxes. No per-cell ticking entities are created.
 
-`Chambers`, `CrystalSeed`, and `ResonantCrystal` provide budgeted deep-Overworld generation and proximity awakening. Forge GameTests cover interacting systems; production packaging excludes their classes.
+`PsychicGeometry` draws smooth prismatic films and ripples after translucent blocks with additive blending/read-only depth. The player controls the camera. An unlabeled 182-pixel output strip sits above the hotbar/XP area. `CrystalRenderer` caches/deduplicates baked faces and draws each once, applying animated full-bright light to the original vein material without coplanar emission overlays.
+
+## Persistence and compatibility
+
+`Potential` stores acquisition, activation, stage, XP, output and color. Old exertion data is purged. Practice and online time award configurable XP; power use never reduces control or health.
+
+`GunBridge` optionally resolves TaCZ bullet estimation and pre-hurt APIs without a dependency. Unrecognized APIs retain Forge hurt fallback. Ordinary damage resistance applies even when a gun's armor-piercing split bypasses geometric projectile capture.
+
+`Chambers`, `CrystalSeed` and `ResonantCrystal` provide budgeted generation and awakening. GameTests plus isolated client/visual checks exercise systems. Every development test/helper is excluded from the production jar. See [compatibility](docs/COMPATIBILITY.md) for live integration limits.

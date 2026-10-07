@@ -3,7 +3,7 @@
 Read this first. Forge 1.20.1 / 47.4.26, Java 17, namespace `psychokinesis`, version `2.0.0-rebuild`.
 Branch: `codex/chronicle-psychokinesis`; PR: https://github.com/memesareiternal-crypto/Chronicle-mod-/pull/1 . Do not assume merged.
 
-Verified: final production build and all 38 Forge GameTests pass, including 256 real held mobs, output scaling, disarming input, composite ownership, impacts, queued inventory-safe masses, barrier capture, and survival flight cleanup.
+Verified: final production build and all 38 Forge GameTests pass locally and on GitHub's Linux runner (runtime commit fe6beb8, Actions run37682416521), including 256 real held mobs, output scaling, disarming input, composite ownership, impacts, queued inventory-safe masses, barrier capture, and survival flight cleanup.
 Works: primary right-click grip, optional G/add target, left-click throws/disarm/compression, pin/place, B sphere/dome/plane, contextual pressure/cuts/utility, acceleration flight, progression/config/commands.
 
 Output: crouch-scroll globally sets 5%–100%; unlabeled182px meter above hotbar/XP (H-52survival/H-35creative); vanilla hotbar scrolling also continues. Output scales force/reach/mass/group/flight/barrier/healing/defense.
@@ -15,7 +15,7 @@ Limits: coarse bounds collision; some boss scripts override motion; live TaCZ an
 
 Next verification tasks:
 
-1. Confirm GitHub CI and review the published rebuild before merging.
+1. Review the published rebuild before merging; GitHub CI passed at https://github.com/memesareiternal-crypto/Chronicle-mod-/actions/runs/37682416521 .
 2. Run the full manual control sequence at stage1 and stage10, including crowded grabs and disarming.
 3. Validate two-player competition, dimension/death/logout recovery, and survival flight on allow-flight=false dedicated server.
 4. Install the intended TaCZ version and test weak/strong/headshot/AP/hitscan and explosive ammunition.

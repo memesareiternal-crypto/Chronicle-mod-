@@ -158,6 +158,7 @@ public final class GroupOutputTests {
 
     /** Synchronous tests restore server choices before any queued test can tick. */
     private static final class ScaleFixture implements AutoCloseable {
+        private final TestConfigScope configScope = new TestConfigScope();
         private final int maximumLevel = Settings.MAX_LEVEL.get();
         private final int targetLimit = Settings.TARGET_LIMIT.get();
         private final double growth = Settings.TARGET_GROWTH.get();
@@ -171,11 +172,15 @@ public final class GroupOutputTests {
             Settings.OUTPUT_STEP.set(.05);
         }
         @Override public void close() {
-            Settings.MAX_LEVEL.set(maximumLevel);
-            Settings.TARGET_LIMIT.set(targetLimit);
-            Settings.TARGET_GROWTH.set(growth);
-            Settings.OVERALL_STRENGTH.set(strength);
-            Settings.OUTPUT_STEP.set(outputStep);
+            try {
+                Settings.MAX_LEVEL.set(maximumLevel);
+                Settings.TARGET_LIMIT.set(targetLimit);
+                Settings.TARGET_GROWTH.set(growth);
+                Settings.OVERALL_STRENGTH.set(strength);
+                Settings.OUTPUT_STEP.set(outputStep);
+            } finally {
+                configScope.close();
+            }
         }
     }
 }

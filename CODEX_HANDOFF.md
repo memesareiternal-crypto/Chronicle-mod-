@@ -22,7 +22,7 @@ Next verification tasks:
 5. Profile large carriers and hundreds of moving targets under real resource packs/modpacks.
 
 Core: `power/Concentration`, `Physics`, `Potential`, `Ward`, `FlightControl`, `FlightGuard`; `world/MassJobs`, `WorldActions`; `entity/MatterBody`; `client/Presentation`, `MatterRenderer`, `PsychicGeometry`; `Settings`, `network/Wire`, `compat/GunBridge`.
-Build: JAVA_HOME=`C:\Program Files\Eclipse Adoptium\jdk-17.0.20.101-hotspot`, GRADLE_USER_HOME=`C:\Users\memes\.gradle`; `gradlew.bat --offline build` / `gradlew.bat --offline runGameTestServer`. All38 also pass with `-PcleanGameTests` (fresh config/world). The compression-damage test isolates strain; separate tests cover overuse.
+Build: JAVA_HOME=`C:\Program Files\Eclipse Adoptium\jdk-17.0.20.101-hotspot`, GRADLE_USER_HOME=`C:\Users\memes\.gradle`; `gradlew.bat --offline build` / `gradlew.bat --offline runGameTestServer`. All38 also pass with `-PcleanGameTests` (fresh config/world). Temporary test overrides use TestConfigScope (in-memory deep copy) to avoid Forge file-watcher races; compression tests isolate strain separately.
 Jar: `build/libs/psychokinesis-2.0.0-rebuild.jar`. Keep run/build/log files out of commits.
 
 Invariants: server chooses targets/edits; exclusive reversible claims; recoverable inventories; global tick budgets; no ability wheel/text mode labels, per-cell entities, self-damage from overuse, creative-flight permissions, or power particle packets.

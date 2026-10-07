@@ -105,31 +105,33 @@ public final class PhysicsAuditTests {
 
     @GameTest(template="empty")
     public static void disabling_compression_damage_does_not_add_melee_damage(GameTestHelper helper) {
-        var owner = player(helper);
-        var target = helper.spawn(EntityType.ZOMBIE, new BlockPos(3, 3, 3));
-        double previous = Settings.COMPRESSION_DAMAGE.get();
-        Physics.Hold hold = null;
-        try {
-            Settings.COMPRESSION_DAMAGE.set(0.);
-            hold = Physics.take(owner, target);
-            helper.assertTrue(hold != null, "The compression fixture must be grippable");
-            float health = target.getHealth();
-            for (int tick = 0; tick < 24; tick++) {
-                // This test isolates the damage multiplier; overuse is covered by its own tests.
-                Potential.data(owner).putDouble("strain", 0);
-                boolean maintained = hold.steer(owner, target.getBoundingBox().getCenter(), true);
-                helper.assertTrue(maintained, "The fixture grip must remain stable: tick=" + tick
-                    + ", alive=" + target.isAlive() + ", health=" + target.getHealth()
-                    + ", strain=" + Potential.strain(owner) + ", level=" + Potential.level(owner)
-                    + ", output=" + Potential.output(owner));
-                hold.compress(owner, 2);
+        try (var configScope = new TestConfigScope()) {
+            var owner = player(helper);
+            var target = helper.spawn(EntityType.ZOMBIE, new BlockPos(3, 3, 3));
+            double previous = Settings.COMPRESSION_DAMAGE.get();
+            Physics.Hold hold = null;
+            try {
+                Settings.COMPRESSION_DAMAGE.set(0.);
+                hold = Physics.take(owner, target);
+                helper.assertTrue(hold != null, "The compression fixture must be grippable");
+                float health = target.getHealth();
+                for (int tick = 0; tick < 24; tick++) {
+                    // This test isolates the damage multiplier; overuse is covered by its own tests.
+                    Potential.data(owner).putDouble("strain", 0);
+                    boolean maintained = hold.steer(owner, target.getBoundingBox().getCenter(), true);
+                    helper.assertTrue(maintained, "The fixture grip must remain stable: tick=" + tick
+                        + ", alive=" + target.isAlive() + ", health=" + target.getHealth()
+                        + ", strain=" + Potential.strain(owner) + ", level=" + Potential.level(owner)
+                        + ", output=" + Potential.output(owner));
+                    hold.compress(owner, 2);
+                }
+                helper.assertTrue(target.getHealth() == health, "A zero compression multiplier must suppress all compression damage, including melee reinforcement");
+                helper.succeed();
+            } finally {
+                Settings.COMPRESSION_DAMAGE.set(previous);
+                if (hold != null) hold.close();
+                target.discard();
             }
-            helper.assertTrue(target.getHealth() == health, "A zero compression multiplier must suppress all compression damage, including melee reinforcement");
-            helper.succeed();
-        } finally {
-            Settings.COMPRESSION_DAMAGE.set(previous);
-            if (hold != null) hold.close();
-            target.discard();
         }
     }
 

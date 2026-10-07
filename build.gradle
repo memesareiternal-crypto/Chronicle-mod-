@@ -117,6 +117,9 @@ minecraft {
             if (project.hasProperty('cleanGameTests')) {
                 workingDirectory project.file('run-gametest-clean')
             }
+            if (project.hasProperty('freshGameTests')) {
+                workingDirectory project.file('run-gametest-fresh')
+            }
         }
 
         data {

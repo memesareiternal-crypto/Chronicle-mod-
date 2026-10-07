@@ -126,8 +126,9 @@ public final class MassAuditTests {
 
     @GameTest(template = "empty", timeoutTicks = 600)
     public static void queued_1728_cell_mass_preserves_inventory_and_restart_snapshot(GameTestHelper h) {
-        // A separate elevated chunk avoids interfering with other tests in the same batch.
-        BlockPos start = h.absolutePos(new BlockPos(64, 96, 64));
+        // Large fixtures must not inherit the small structure grid's terrain-dependent
+        // origin. A fixed region isolates them from other concurrently running fixtures.
+        BlockPos start = new BlockPos(10000, 288, 10000);
         BlockPos end = start.offset(11, 11, 11);
         List<ChunkPos> forced = new ArrayList<>();
         for (int x = (start.getX() - 1) >> 4; x <= (end.getX() + 1) >> 4; x++) {
@@ -158,10 +159,14 @@ public final class MassAuditTests {
             "Stress source must be loaded and editable before submission");
         MassJobs.capture(actor, start, 24, 1728, body -> {
             int remaining = 0;
+            String firstRemaining = "none";
             for (BlockPos pos : BlockPos.betweenClosed(start, end))
-                if (!h.getLevel().getBlockState(pos).isAir()) remaining++;
+                if (!h.getLevel().getBlockState(pos).isAir()) {
+                    remaining++;
+                    if(firstRemaining.equals("none"))firstRemaining=pos.toShortString()+":"+h.getLevel().getBlockState(pos);
+                }
             diagnostic.set("Capture callback: mass=" + (body == null ? "null" : body.mass())
-                + ", alive=" + (body != null && body.isAlive()) + ", sourceRemaining=" + remaining);
+                + ", alive=" + (body != null && body.isAlive()) + ", sourceRemaining=" + remaining+", first="+firstRemaining);
             callbackRemaining.set(remaining);
             result.set(body);
             completed.set(true);

@@ -172,7 +172,7 @@ public final class TatsumakiTests {
         }
     }
     @GameTest(template="empty",timeoutTicks=200) public static void charged_downward_force_flattens_without_losing_matter(GameTestHelper h){
-        var p=player(h);BlockPos seed=h.absolutePos(new BlockPos(224,208,224));
+        var p=player(h);BlockPos seed=new BlockPos(10256,288,10000);
         var chunks=new HashSet<net.minecraft.world.level.ChunkPos>();
         for(BlockPos pos:BlockPos.betweenClosed(seed.offset(-2,-2,-2),seed.offset(10,16,10)))chunks.add(new net.minecraft.world.level.ChunkPos(pos));
         for(var c:chunks){h.getLevel().getChunk(c.x,c.z);h.getLevel().setChunkForced(c.x,c.z,true);}
@@ -190,7 +190,7 @@ public final class TatsumakiTests {
         });
     }
     @GameTest(template="empty",timeoutTicks=200) public static void force_impact_displaces_terrain_and_preserves_container_contents(GameTestHelper h){
-        var p=player(h);BlockPos seed=h.absolutePos(new BlockPos(160,184,160));
+        var p=player(h);BlockPos seed=new BlockPos(10384,288,10000);
         var chunk=new net.minecraft.world.level.ChunkPos(seed);h.getLevel().getChunk(chunk.x,chunk.z);h.getLevel().setChunkForced(chunk.x,chunk.z,true);
         for(BlockPos pos:BlockPos.betweenClosed(seed.offset(-2,-2,-4),seed.offset(5,6,10)))h.getLevel().setBlock(pos,Blocks.AIR.defaultBlockState(),18);
         var wall=new ArrayList<BlockPos>();
@@ -213,7 +213,7 @@ public final class TatsumakiTests {
         });
     }
     @GameTest(template="empty",timeoutTicks=300) public static void ordinary_right_click_lifts_a_large_terrain_mass(GameTestHelper h){
-        var p=player(h);BlockPos seed=h.absolutePos(new BlockPos(128,192,128));
+        var p=player(h);BlockPos seed=new BlockPos(10128,288,10000);
         var chunks=new HashSet<net.minecraft.world.level.ChunkPos>();
         for(BlockPos pos:BlockPos.betweenClosed(seed.offset(-1,-1,-1),seed.offset(12,12,12)))chunks.add(new net.minecraft.world.level.ChunkPos(pos));
         for(var c:chunks){h.getLevel().getChunk(c.x,c.z);h.getLevel().setChunkForced(c.x,c.z,true);}

@@ -3,6 +3,7 @@ build/
 run/
 run-data/
 run-gametest-clean/
+run-gametest-fresh/
 run-flight-audit/
 .idea/
 *.iml

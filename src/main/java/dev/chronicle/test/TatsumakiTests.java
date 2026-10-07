@@ -204,9 +204,11 @@ public final class TatsumakiTests {
         h.assertTrue(h.getLevel().getBlockState(chest).is(Blocks.CHEST),"Gentle contact must not cause catastrophic edits");
         Impacts.resolve(p,missile,missile.position(),new Vec3(0,0,6));
         h.succeedWhen(()->{
-            var debris=h.getLevel().getEntitiesOfClass(dev.chronicle.entity.MatterBody.class,new net.minecraft.world.phys.AABB(seed,seed.offset(5,8,12))).stream().filter(b->b!=missile&&b.cells().stream().anyMatch(c->c.data()!=null)).findFirst().orElse(null);
+            // Secondary terrain is launched immediately. Query its travel envelope instead
+            // of a source-only box that it can leave before the next test assertion tick.
+            var debris=h.getLevel().getEntitiesOfClass(dev.chronicle.entity.MatterBody.class,new net.minecraft.world.phys.AABB(seed,seed.offset(5,8,12)).inflate(64)).stream().filter(b->b!=missile&&!b.transferring()&&b.mass()==32&&b.cells().stream().anyMatch(c->c.data()!=null)).findFirst().orElse(null);
             h.assertTrue(debris!=null,"A strong impact must eject real secondary terrain with its original container");
-            h.assertTrue(h.getLevel().getBlockState(chest).isAir(),"Impact terrain must transfer into debris");
+            for(BlockPos pos:wall)h.assertTrue(h.getLevel().getBlockState(pos).isAir(),"Every impact cell must transfer into the completed debris");
             var stored=debris.cells().stream().filter(c->c.data()!=null).findFirst().orElseThrow().data();
             h.assertTrue(stored.getList("Items",10).getCompound(0).getByte("Count")==7,"Impact must keep all seven diamonds exactly once");
             debris.discard();missile.discard();h.getLevel().setChunkForced(chunk.x,chunk.z,false);Impacts.clear();

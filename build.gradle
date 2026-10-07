@@ -104,6 +104,9 @@ minecraft {
         // The gametest system is also enabled by default for other run configs under the /test command.
         gameTestServer {
             property 'forge.enabledGameTestNamespaces', mod_id
+            if (project.hasProperty('cleanGameTests')) {
+                workingDirectory project.file('run-gametest-clean')
+            }
         }
 
         data {

@@ -73,4 +73,6 @@ gradlew.bat build
 gradlew.bat runGameTestServer
 ```
 
+For a separate fresh test world and default configuration, use `gradlew.bat runGameTestServer -PcleanGameTests`.
+
 The production build and all **38 GameTests** pass. Coverage includes entity/block collisions, disarming controls, composite ownership, projectile barriers, queued inventory-safe transfers, hundreds-scale groups, output adjustment, cleanup, and flight permissions. The jar is `build/libs/psychokinesis-2.0.0-rebuild.jar`; test classes are excluded from its packaging. The client also verified the prismatic films, animated crystal glow, textured mass, and meter placement. Live multiplayer and TaCZ modpack validation remain separate checks.

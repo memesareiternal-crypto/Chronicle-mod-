@@ -1,12 +1,14 @@
 # Continuation — Chronicle remake
 
+Read `CODEX_HANDOFF.md` first. It supersedes stale implementation details below.
+
 ## User intent
 
 The user explicitly corrected the initial approach: **a remake, not a migration**. Keep all gameplay in the new `dev.chronicle` architecture. Retain only supplied crystal artwork and Forge tooling from the previous project. Target GitHub repository: `memesareiternal-crypto/Chronicle-mod-`, base `main`, working branch `codex/chronicle-psychokinesis`.
 
 ## Current implementation
 
-Forge 1.20.1 / 47.4.26, Java 17, version `1.0.0-remake`, registry namespace `psychokinesis`. Fresh modules implement potential/strain, bounded two-key intent, shared physical holds, projectiles/collisions, block and structure snapshots, region/terrain, eight cutting geometries, remote building/interactions, crop replanting, anchored fields, flight, regeneration, sensing, pressure/explosion, crystal entities/chambers and commands. The client batches a cached greedy exterior mesh for matter. No gameplay Java remains from `com.telekinesis`.
+Forge 1.20.1 / 47.4.26, Java 17, version `1.0.0-remake`, registry namespace `psychokinesis`. The input architecture is contextual: G grips, vanilla right click channels output, and B controls barriers. There is no ability dial. Moving matter is one server carrier and uses real baked block models for its exposed client surface. No gameplay Java remains from `com.telekinesis`.
 
 ## Verification and immediate work
 
@@ -22,10 +24,10 @@ Set `JAVA_HOME` to the installed Java 17 directory (`C:\Program Files\Eclipse Ad
 
 ## Design invariants
 
-- Exactly two custom keys; vanilla modifiers and wheel supply intent. Normal hotbar scrolling must work without a power key held.
+- Exactly two custom keys (G and B); right click, vanilla modifiers, and wheel supply context. Normal hotbar scrolling must work unless G or an active barrier-shaping chord is held.
 - Server chooses targets and computes force/damage. Packets never provide world edits or arbitrary coordinates.
 - Ownership is exclusive; every suspension restores AI/gravity on cleanup. A thrown target must not be immediately re-grabbed until G is released.
 - Snapshot capture and placement preserve inventories and validate before mutation. Failed placement must leave every cell recoverable.
-- All levels have finite strain capacity. Sustained flight/fields/holds must not be offset by idle recovery in the same tick.
+- All levels have finite strain capacity. Sustained flight/fields/holds must not be offset by idle recovery in the same tick. Overuse reduces control and never directly damages the user.
 - Never emit power particles or call vanilla explosion/destruction effects to implement psychic visuals.
 - Only crystal assets and the build scaffold are inherited. Do not resume the old implementation in the parent directory.

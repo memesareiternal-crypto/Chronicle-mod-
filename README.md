@@ -1,72 +1,59 @@
 # Chronicle: Psychokinesis
 
-A fresh Forge 1.20.1 implementation of the supplied Chronicle-inspired design. Gameplay lives in `dev.chronicle`; only the crystal artwork and Forge project scaffolding were retained from the earlier project.
-
-Two custom keys channel a shared physical system. There is no ability screen, custom HUD, particle trail, or gravity-power kit. Optional hints use Minecraft's existing action bar. Active players have a faint, randomly colored geometric aura.
-
-## Install and awaken
-
-Use Java 17 and Minecraft 1.20.1 with Forge 47.4.26. Install the built jar on both client and server. Rare basalt/calcite chambers generate in **new Overworld chunks**, deep underground. Stand within five blocks of their large crystal for four seconds to awaken. Configurable potential grows through use and time possessed while online.
-
-Operators can run:
-
-```text
-/psychokinesis grant [players]
-/psychokinesis max [players]
-/psychokinesis remove [players]
-/give @s psychokinesis:crystal_spawn_egg
-```
-
-The spawn egg creates the crystal entity; it is the only added item and is available in the creative Spawn Eggs tab. Natural chambers generate separately.
+A Forge 1.20.1 psychokinesis system built around target, direction, scale, and context. It has no ability menu, mode wheel, custom HUD, or particle spam.
 
 ## Controls
 
-| Input | Application |
+| Input | Result |
 | --- | --- |
-| Hold G | Grab and steer aimed matter: entities, vehicles and passengers, items, projectiles, blocks, liquids, connected trees |
-| Release G | Let held matter fall |
-| Hold R, scroll, release R | Choose intent without executing it; ordinary scrolling still changes hotbar slots |
-| Scroll while holding matter | Adjust distance |
-| Sneak + scroll while holding | Quarter-turn structures; rotate entities |
-| Hold/release R with matter | Charge and throw; view motion and player momentum contribute |
-| Sneak + R while holding | Compress/choke; prolonged focus disarms, then strips armor at sufficient level |
-| Sprint + release R while holding | Snap matter to the target grid position; an outline previews the footprint |
-| Jump / sprint while holding G | Raise / lower the target |
-| Sneak + G + R with empty hands of force | Toggle concentration; release both keys before using it again |
+| Hold **G** while aiming | Grip and steer an entity, projectile, vehicle, block, tree, or block mass |
+| Release **G** | Release held matter |
+| **Sneak + G** | Expand the connected block selection; scroll while focusing to change its radius |
+| Scroll while holding | Change distance; sneak-scroll rotates a held structure |
+| Hold/release **right click** | Charge and release telekinetic output with either hand empty or an item held |
+| Sneak + right click while holding | Compress a held target; sustained pressure can disarm, strip, or shatter |
+| Sprint + right click while holding blocks | Place the held mass precisely at the aimed grid position |
+| Right click with no grip | Remote interaction on a tap, then vector push; sneak reverses it into a pull |
+| Long right-click charge | At sufficient level, releases a radial psychic explosion |
+| Jump + right click | Toggle psychokinetic flight |
+| Sneak + jump + right click | Sense nearby living targets |
+| Sneak + sprint + right click | Concentrate force into a cutting sweep |
+| Tap **B** | Toggle a barrier around the player |
+| Hold **B** and aim | Protect an aimed entity or location |
+| Sneak + **B** | Shape the barrier into a plane |
+| Hold **B** and scroll | Resize an active barrier |
 
-The intent dial contains Matter, Cut/Sculpt, Region/Terrain, Force Field, Remote Building, Harvest/Replant, Radar, Flight, and Psionic Explosion. They reuse the same two keys and physical ownership rules.
+Right-click item use is intercepted while concentration is active so the same action works with an empty hand or any held item. Sneak + G + right click toggles concentration.
 
-- **Matter:** tap R to interact remotely with doors, levers, buttons and redstone controls, or project force. Sneak reverses the force into a pull. Throw mobs through other mobs or into walls. Stronger and healthier creatures resist holds. Loose arrows, snowballs, eggs, flint and nuggets acquire contextual projectile behavior when thrown.
-- **Cut/Sculpt:** Sneak + R + scroll chooses sweep, line, plane, pierce, whirl, volley, scissor or trace. G marks a line origin; holding R traces or repeats cuts. Cuts obey hardness and edit permissions. Wood yields matching planks, wool/webs yield string, melons yield slices, pumpkins are carved, sheep are sheared, and scissor cuts release leads.
-- **Region/Terrain:** press G at two corners, then release R to lift the region as one physical body. Without a completed selection, R peels a surface patch; Sneak rotates the peeled patch. Holding jump when lifting mounts the body as a moving platform. Hold G to steer it.
-- **Force Field:** R forms or releases a field. G anchors it to the aimed entity or point; Sneak + G resets the anchor to self. Fields hold acceptable projectiles, repel weak attackers, protect their enclosed volume, and break under excessive damage. Sneak compresses their contents. Releasing returns caught projectiles. Nearby items can serve as expendable interceptors.
-- **Remote Building:** R places the block in your actual hand at range. G + R removes aimed blocks. Sneak mirrors placement; Sneak + G selects the mirror plane. Normal item consumption applies.
-- **Harvest/Replant:** R harvests crops and replants using a seed deducted from the loot. Sneak widens the area. Produce moves toward you.
-- **Radar:** R outlines nearby living targets briefly.
-- **Flight:** R starts/stops flight using vanilla movement controls. Sustained flight consumes strain.
-- **Psionic Explosion:** hold/release R for a radial pressure wave and capped terrain destruction. Sneak draws inward. No explosion particles are emitted.
+## Progression and configuration
 
-## Progression and balance
+Progression has ten readable stages. Every powered player can run `/psychokinesis level` and see `level N/10`; it requires no operator permission. Operators also have `grant`, `remove`, `max`, `setlevel`, `setprogress`, `resetprogress`, and `spawncrystal` subcommands.
 
-Default unlocks: flight 8, fields 12, radar 18, regeneration 25, large regions 30, explosion 50. Basic manipulation, physical enhancement and sculpting are available immediately and grow with potential. Level raises force, reach, grip, defense and strain capacity. Exceeding that capacity always damages the wielder, even at maximum level; continuing to exert increases that damage. Rest restores capacity.
+`config/chronicle-common.toml` includes:
 
-`config/chronicle-common.toml` controls growth, passive experience, strain/recovery/damage, reach, force, resistance, hardness, projectile capacity, structure limits, terrain budgets, inventory handling, PvP, field size, cooldowns, unlocks, crystal rarity/depth/exposure, aura and hints.
+- `growth.levelingRateMultiplier` for overall advancement speed
+- separate use and online-time experience rates
+- `physics.overallStrength` from `0.1` to `20.0`, default `1.0`
+- reach, force, mass, structure, terrain, barrier, flight, recovery, world generation, PvP, and compatibility settings
+- `presentation.specialEffects` to toggle thin barrier, force-wave, and psychic-explosion geometry
 
-## Structures and compatibility
+Strain remains a limit at every level. Going over it reduces control and output stability but never directly damages the player.
 
-Structures retain block states and optional block-entity NBT in one carrier. Their visible surface is a cached, merged mesh using block map colors, avoiding per-block renderers and entities. Placement is atomic: an obstructed destination leaves all contents in the body. Rotation updates block-state orientation. Saved bodies resume with gravity after restart.
+## Large moving masses
 
-Vanilla projectiles use damage estimates for interception. Unknown projectile implementations use actual Forge damage events at impact. An optional TaCZ bridge checks combined bullet damage before its armor-piercing split and estimates moving TaCZ bullets using its API. TaCZ is not a required dependency; see [compatibility notes](docs/COMPATIBILITY.md) for verification limits.
+A moved block selection becomes one `MatterBody` on the server. The server simulates one transform, velocity, collision body, ownership record, and placement transaction. The client renders only exposed cells through Minecraft's baked block renderer, preserving the real block textures without creating or ticking one entity per block.
 
-## Build and verify
+## Crystal acquisition
+
+Rare configurable chambers generate deep in newly created Overworld chunks. Exposure to their resonant crystal grants the power. The supplied GLTF and its two embedded textures are complete. Pixel checks confirmed our extracted PNGs are exact vertical flips of the embedded images, so the earlier conversion then flipped the UVs a second time. The corrected model removes that double flip, replaces the invalid old OBJ loader field, and uses normal scene lighting.
+
+## Build and verification
+
+Use Java 17:
 
 ```text
-./gradlew build
-./gradlew runGameTestServer
+gradlew.bat build
+gradlew.bat runGameTestServer
 ```
 
-Windows: use `gradlew.bat`. The production jar appears in `build/libs/`. GitHub Actions builds the jar, runs the Minecraft regression suite and uploads the jar and logs as artifacts. The suite covers inventory transfer, obstructed placement, movement, rotation, persistence, unbreakable blocks, finite strain, hold cleanup and input bounds.
-
-Read [CONTINUATION.md](CONTINUATION.md) before resuming development. [Architecture](docs/ARCHITECTURE.md) and [current limits](docs/COMPATIBILITY.md) describe the implementation and remaining playtest work.
-
-Code is MIT licensed. The supplied crystal assets are preserved in `assets/source/`.
+The current nine integrated Minecraft tests pass. The production jar is written to `build/libs/`.

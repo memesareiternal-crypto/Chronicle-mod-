@@ -14,14 +14,22 @@ import java.util.*;
 public final class Ward {
     private Vec3 anchor;
     private final Entity attachment;
+    private final boolean plane;
     private final List<Physics.Hold> caught = new ArrayList<>();
     private final List<Physics.Hold> orbit = new ArrayList<>();
     private double integrity;
-    public Ward(ServerPlayer p, Vec3 anchor, Entity attachment) { this.anchor = anchor; this.attachment = attachment; integrity = capacity(p) * 8; }
-    public static double capacity(ServerPlayer p) { return 2 + Potential.level(p) * Settings.BULLET_CAPACITY.get(); }
+    private double scale = 1;
+    public Ward(ServerPlayer p, Vec3 anchor, Entity attachment, boolean plane) { this.anchor = anchor; this.attachment = attachment; this.plane = plane; integrity = capacity(p) * 8; }
+    public static double capacity(ServerPlayer p) { return (2 + Potential.level(p) * Settings.BULLET_CAPACITY.get()) * Potential.strength(); }
     public Vec3 center(ServerPlayer p) { return attachment != null && attachment.isAlive() ? attachment.getBoundingBox().getCenter() : anchor == null ? p.getBoundingBox().getCenter() : anchor; }
-    public double radius(ServerPlayer p) { return Settings.FIELD_RADIUS.get() + Potential.level(p) * .025; }
-    public boolean protects(ServerPlayer p, Entity entity) { return entity.distanceToSqr(center(p)) < Math.pow(radius(p), 2); }
+    public double radius(ServerPlayer p) { return (Settings.FIELD_RADIUS.get() + Potential.level(p) * .1) * Math.sqrt(Potential.strength()) * scale; }
+    public boolean plane() { return plane; }
+    public float integrity(ServerPlayer p) { return (float)Math.max(0, Math.min(1, integrity / Math.max(1, capacity(p) * 8))); }
+    public void resize(int direction) { scale = Math.max(.5, Math.min(3, scale + direction * .25)); }
+    public boolean protects(ServerPlayer p, Entity entity) {
+        Vec3 d = entity.getBoundingBox().getCenter().subtract(center(p));
+        return plane ? Math.abs(d.dot(p.getLookAngle())) < .8 && d.lengthSqr() < Math.pow(radius(p), 2) : d.lengthSqr() < Math.pow(radius(p), 2);
+    }
     public boolean absorb(ServerPlayer p, float amount) {
         if (amount > capacity(p) * 2.5 || integrity <= 0) { integrity -= amount; return false; }
         if (!orbit.isEmpty()) {

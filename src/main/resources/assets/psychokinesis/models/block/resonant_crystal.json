@@ -1,6 +1,8 @@
 {
   "loader": "forge:obj",
   "model": "psychokinesis:models/block/crystal.obj",
-  "flip_v": true,
-  "ambientToFullbright": true
+  "automatic_culling": false,
+  "shade_quads": true,
+  "flip_v": false,
+  "emissive_ambient": false
 }

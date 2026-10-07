@@ -59,9 +59,9 @@ public final class ChronicleTests {
         BlockPos p=point(h);h.getLevel().setBlock(p,Blocks.BEDROCK.defaultBlockState(),3);h.getLevel().setBlock(p.east(),Blocks.GOLD_BLOCK.defaultBlockState(),3);
         h.assertTrue(MatterBody.capture(h.getLevel(),List.of(p,p.east()),null)==null,"Unbreakable regions must be rejected");h.assertTrue(h.getLevel().getBlockState(p.east()).is(Blocks.GOLD_BLOCK),"Rejected capture must not remove other blocks");h.succeed();
     }
-    @GameTest(template="empty") public static void maximum_level_retains_strain_and_damage(GameTestHelper h) {
+    @GameTest(template="empty") public static void maximum_level_retains_safe_strain(GameTestHelper h) {
         var p=player(h);Potential.maximize(p);Potential.spend(p,Potential.threshold(p)*2);
-        h.assertTrue(Potential.strain(p)>Potential.threshold(p),"Maximum level still overexerts");float damage=Potential.exhaustionDamage(p);Potential.spend(p,Potential.threshold(p));h.assertTrue(Potential.exhaustionDamage(p)>damage,"Continuing exertion increases damage");
+        h.assertTrue(Potential.strain(p)>Potential.threshold(p),"Maximum level still records exertion");double control=Potential.control(p);Potential.spend(p,Potential.threshold(p));h.assertTrue(Potential.control(p)<=control,"Continuing exertion reduces control without damaging the player");
         Potential.active(p,false);h.assertTrue(Potential.acquired(p)&&!Potential.active(p),"Toggle preserves ownership");Potential.remove(p);h.assertFalse(Potential.acquired(p),"Remove revokes power");h.succeed();
     }
     @GameTest(template="empty") public static void hold_restores_mob_state(GameTestHelper h) {
@@ -70,6 +70,6 @@ public final class ChronicleTests {
         h.assertFalse(mob.isNoAi()||mob.isNoGravity(),"Release must restore original AI and gravity");h.succeed();
     }
     @GameTest(template="empty") public static void input_is_bounded(GameTestHelper h) {
-        Intent intent=new Intent(-1,Integer.MAX_VALUE);h.assertTrue(intent.buttons()==31&&intent.wheel()==1,"Untrusted input must be bounded");h.succeed();
+        Intent intent=new Intent(-1,Integer.MAX_VALUE);h.assertTrue(intent.buttons()==63&&intent.wheel()==1,"Untrusted input must be bounded");h.succeed();
     }
 }

@@ -40,20 +40,22 @@ public final class Applications {
         }
         return best;
     }
-    public static MatterBody lift(ServerPlayer p, boolean connected) {
+    public static MatterBody lift(ServerPlayer p, boolean connected) { return liftArea(p, connected ? 2 : 0); }
+    public static MatterBody liftArea(ServerPlayer p, int radius) {
         BlockHitResult hit = aim(p); if (hit.getType() != HitResult.Type.BLOCK) return null;
         BlockPos start = hit.getBlockPos(); BlockState seed = p.level().getBlockState(start);
-        if (connected && (seed.is(BlockTags.LOGS) || seed.is(BlockTags.LEAVES))) {
-            Set<BlockPos> visited = new HashSet<>(); List<BlockPos> tree = new ArrayList<>(); ArrayDeque<BlockPos> queue = new ArrayDeque<>(); queue.add(start);
-            int limit = Math.min(Settings.STRUCTURE_LIMIT.get(), 16 + Potential.level(p) * 8);
-            while (!queue.isEmpty() && tree.size() < limit) {
-                BlockPos pos = queue.remove(); if (!visited.add(pos) || start.distManhattan(pos) > 20 || !WorldAccess.loaded(p.serverLevel(), pos)) continue;
-                BlockState state = p.level().getBlockState(pos); if (!state.is(BlockTags.LOGS) && !state.is(BlockTags.LEAVES)) continue;
-                tree.add(pos); for (Direction d : Direction.values()) queue.add(pos.relative(d));
-            }
-            return MatterBody.capture(p.serverLevel(), tree, p);
+        if (radius <= 0 && !seed.is(BlockTags.LOGS) && !seed.is(BlockTags.LEAVES)) return MatterBody.capture(p.serverLevel(), List.of(start), p);
+        int scaled = Math.max(radius, seed.is(BlockTags.LOGS) || seed.is(BlockTags.LEAVES) ? 4 : 1);
+        int limit = Math.min(Settings.STRUCTURE_LIMIT.get(), Math.max(1, (int)((24 + Potential.level(p) * 32) * Potential.strength())));
+        Set<BlockPos> visited = new HashSet<>(); List<BlockPos> selected = new ArrayList<>(); ArrayDeque<BlockPos> queue = new ArrayDeque<>(); queue.add(start);
+        while (!queue.isEmpty() && selected.size() < limit) {
+            BlockPos pos = queue.remove();
+            if (!visited.add(pos) || !WorldAccess.loaded(p.serverLevel(), pos) || start.distSqr(pos) > scaled * scaled) continue;
+            BlockState state = p.level().getBlockState(pos); if (state.isAir() || state.getDestroySpeed(p.level(), pos) < 0) continue;
+            if ((seed.is(BlockTags.LOGS) || seed.is(BlockTags.LEAVES)) && !state.is(BlockTags.LOGS) && !state.is(BlockTags.LEAVES)) continue;
+            selected.add(pos); for (Direction d : Direction.values()) queue.add(pos.relative(d));
         }
-        return MatterBody.capture(p.serverLevel(), List.of(start), p);
+        return MatterBody.capture(p.serverLevel(), selected, p);
     }
     public static void pressure(ServerPlayer p, boolean pull, double charge, boolean spherical) {
         double reach = spherical ? 4 + Potential.level(p) * .12 + charge : Potential.reach(p);

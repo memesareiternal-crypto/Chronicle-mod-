@@ -1,5 +1,7 @@
 package dev.chronicle;
 
+import com.mojang.brigadier.arguments.DoubleArgumentType;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import dev.chronicle.entity.ResonantCrystal;
 import dev.chronicle.power.*;
 import dev.chronicle.world.Chambers;
@@ -27,7 +29,7 @@ public final class ServerEvents {
             boolean nearby = !p.level().getEntitiesOfClass(ResonantCrystal.class, p.getBoundingBox().inflate(5)).isEmpty();
             int progress = nearby ? exposure.getOrDefault(p.getUUID(), 0)+1 : 0;
             if (progress == 0) exposure.remove(p.getUUID()); else exposure.put(p.getUUID(), progress);
-            if (progress >= Settings.AWAKEN_TIME.get()) { Potential.grant(p); exposure.remove(p.getUUID()); p.displayClientMessage(Component.literal("The crystal answers. G focuses matter; R channels force. Hold R and scroll to change intent."), false); }
+            if (progress >= Settings.AWAKEN_TIME.get()) { Potential.grant(p); exposure.remove(p.getUUID()); p.displayClientMessage(Component.literal("The crystal answers. Hold G to move matter, right click to channel force, and press B for a barrier."), false); }
         }
         Concentration.tick(p);
     }
@@ -44,7 +46,6 @@ public final class ServerEvents {
 
     @SubscribeEvent public void hurt(LivingHurtEvent event) {
         if (event.getEntity().level().isClientSide) return;
-        if (event.getEntity() instanceof ServerPlayer p && Concentration.exhausting(p)) return;
         float damage = event.getAmount();
         boolean penetrating = dev.chronicle.compat.GunBridge.penetrates(event.getEntity());
         // Actual impact damage is authoritative for unknown mod bullets and hitscan sources.
@@ -62,11 +63,24 @@ public final class ServerEvents {
         }
     }
     @SubscribeEvent public void commands(RegisterCommandsEvent event) {
-        var root = Commands.literal("psychokinesis").requires(source -> source.hasPermission(2));
+        var root = Commands.literal("psychokinesis");
+        root.then(Commands.literal("level").executes(c -> {
+            ServerPlayer p=c.getSource().getPlayerOrException();
+            if(!Potential.acquired(p)) { c.getSource().sendFailure(Component.literal("You have not awakened psychokinesis.")); return 0; }
+            c.getSource().sendSuccess(() -> Component.literal("Psychokinesis level " + Potential.level(p) + "/10"), false); return Potential.level(p);
+        }));
         for (String verb : List.of("grant", "max", "remove")) {
-            root.then(Commands.literal(verb).executes(c -> command(verb, List.of(c.getSource().getPlayerOrException())))
+            root.then(Commands.literal(verb).requires(source -> source.hasPermission(2)).executes(c -> command(verb, List.of(c.getSource().getPlayerOrException())))
                 .then(Commands.argument("players", EntityArgument.players()).executes(c -> command(verb, EntityArgument.getPlayers(c, "players")))));
         }
+        root.then(Commands.literal("setlevel").requires(s -> s.hasPermission(2)).then(Commands.argument("players",EntityArgument.players()).then(Commands.argument("level",IntegerArgumentType.integer(1,10)).executes(c -> {
+            var players=EntityArgument.getPlayers(c,"players"); int level=IntegerArgumentType.getInteger(c,"level"); for(var p:players){ Potential.setLevel(p,level); Concentration.synchronize(p); } return players.size();
+        }))));
+        root.then(Commands.literal("setprogress").requires(s -> s.hasPermission(2)).then(Commands.argument("players",EntityArgument.players()).then(Commands.argument("experience",DoubleArgumentType.doubleArg(0)).executes(c -> {
+            var players=EntityArgument.getPlayers(c,"players"); double xp=DoubleArgumentType.getDouble(c,"experience"); for(var p:players){ Potential.setProgress(p,xp); Concentration.synchronize(p); } return players.size();
+        }))));
+        root.then(Commands.literal("resetprogress").requires(s -> s.hasPermission(2)).then(Commands.argument("players",EntityArgument.players()).executes(c -> { var players=EntityArgument.getPlayers(c,"players"); for(var p:players) Potential.resetProgress(p); return players.size(); })));
+        root.then(Commands.literal("spawncrystal").requires(s -> s.hasPermission(2)).executes(c -> { var p=c.getSource().getPlayerOrException(); var crystal=Chronicle.CRYSTAL.get().create(p.serverLevel()); if(crystal==null) return 0; crystal.moveTo(p.getX(),p.getY(),p.getZ(),0,0); return p.serverLevel().addFreshEntity(crystal)?1:0; }));
         event.getDispatcher().register(root);
     }
     private int command(String verb, Collection<ServerPlayer> players) {

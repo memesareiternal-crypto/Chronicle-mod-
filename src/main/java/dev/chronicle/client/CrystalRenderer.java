@@ -15,7 +15,7 @@ public final class CrystalRenderer extends EntityRenderer<ResonantCrystal> {
     public CrystalRenderer(EntityRendererProvider.Context context) { super(context); }
     @Override public void render(ResonantCrystal e,float yaw,float partial,PoseStack pose,MultiBufferSource buffers,int light) {
         pose.pushPose(); pose.scale(2,2,2); pose.translate(-.5,0,-.5);
-        Minecraft.getInstance().getBlockRenderer().renderSingleBlock(Chronicle.CRYSTAL_MODEL.get().defaultBlockState(),pose,buffers,0xF000F0,OverlayTexture.NO_OVERLAY);
+        Minecraft.getInstance().getBlockRenderer().renderSingleBlock(Chronicle.CRYSTAL_MODEL.get().defaultBlockState(),pose,buffers,light,OverlayTexture.NO_OVERLAY);
         pose.popPose(); super.render(e,yaw,partial,pose,buffers,light);
     }
     @Override public ResourceLocation getTextureLocation(ResonantCrystal e) { return InventoryMenu.BLOCK_ATLAS; }

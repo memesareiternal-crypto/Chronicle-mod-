@@ -19,5 +19,5 @@ This is the first remake build, with a broad implementation of the requested phy
 3. Throw zombies through other mobs and into walls; manipulate a boat containing a rider; test two players competing for the same target. Disconnect, die and cross dimensions while holding matter.
 4. Compare weak and strong incoming arrows and TaCZ bullets. Verify stasis, returning shots, field breakage, projected protection and cleanup.
 5. Exercise every cutting shape, crop replanting, mirrored building and remote redstone. Verify inventories and item counts.
-6. At level 1 and maximum level, sustain expensive uses beyond the threshold. Damage must remain possible and grow with continued strain.
+6. At level 1 and maximum level, sustain expensive uses beyond the threshold. Control must degrade while the player's health remains unchanged.
 7. Check platform travel, flight permission restoration, dedicated-server loading and client rendering under resource packs.

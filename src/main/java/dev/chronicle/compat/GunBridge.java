@@ -18,18 +18,18 @@ public final class GunBridge {
     private static final Map<UUID, Long> PENETRATING = new HashMap<>();
     @SuppressWarnings({"unchecked", "rawtypes"})
     public static void install() {
-        if (!ModList.get().isLoaded("tacz")) return;
+        if (!dev.chronicle.Settings.GUN_COMPAT.get() || !ModList.get().isLoaded("tacz")) return;
         try {
             Class<?> bullet = Class.forName("com.tacz.guns.entity.EntityKineticBullet");
             bulletDamage = bullet.getMethod("getDamage", Vec3.class);
             Class<? extends Event> type = (Class<? extends Event>)Class.forName("com.tacz.guns.api.event.common.EntityHurtByGunEvent$Pre");
-            Method victim = type.getMethod("getHurtEntity"), amount = type.getMethod("getBaseAmount"), headshot = type.getMethod("isHeadShot"), multiplier = type.getMethod("getHeadshotMultiplier");
+            Method victim = type.getMethod("getHurtEntity"), amount = type.getMethod("getBaseAmount"), headshot = type.getMethod("isHeadShot"), multiplier = type.getMethod("getHeadshotMultiplier"),attacker=type.getMethod("getAttacker");
             MinecraftForge.EVENT_BUS.addListener(EventPriority.HIGH, false, (Class)type, (Event event) -> {
                 try {
                     if (!(victim.invoke(event) instanceof LivingEntity target) || target.level().isClientSide) return;
                     float damage = ((Number)amount.invoke(event)).floatValue();
                     if ((Boolean)headshot.invoke(event)) damage *= ((Number)multiplier.invoke(event)).floatValue();
-                    boolean blocked = Concentration.shield(target, damage);
+                    boolean blocked = Concentration.shield(target,damage,(net.minecraft.world.entity.Entity)attacker.invoke(event));
                     if (!blocked && target instanceof ServerPlayer p && Potential.active(p) && damage <= Ward.capacity(p)) { Potential.spend(p, Math.max(.5, damage)); blocked = true; }
                     if (blocked && event.isCancelable()) event.setCanceled(true);
                     else PENETRATING.put(target.getUUID(), target.level().getGameTime());

@@ -1,33 +1,13 @@
-# Continuation — Chronicle remake
+# Continuation — Chronicle rebuild
 
-Read `CODEX_HANDOFF.md` first. It supersedes stale implementation details below.
+Read [CODEX_HANDOFF.md](CODEX_HANDOFF.md) first; [ARCHITECTURE.md](ARCHITECTURE.md) and [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md) describe the current systems. [Compatibility](docs/COMPATIBILITY.md) separates implemented behavior from external playtesting.
 
-## User intent
+The user requested a substantial remake matching the attached psychokinesis specification, then refined controls and presentation. Right click now manipulates directly, G is an optional alternate/add-target grip, B shapes protection, and crouch-scroll sets output while preserving hotbar scrolling. The latest request permits one unlabeled output meter and excludes arbitrary tilt/twist features. Smooth prismatic surfaces replace wire effects; the crystal uses its valid supplied artwork plus animated emissive cracks.
 
-The user explicitly corrected the initial approach: **a remake, not a migration**. Keep all gameplay in the new `dev.chronicle` architecture. Retain only supplied crystal artwork and Forge tooling from the previous project. Target GitHub repository: `memesareiternal-crypto/Chronicle-mod-`, base `main`, working branch `codex/chronicle-psychokinesis`.
+All gameplay is under `dev.chronicle`; do not resume the old `com.telekinesis` implementation in the parent directory. Forge 1.20.1 / 47.4.26 and Java 17 produce `psychokinesis-2.0.0-rebuild.jar`. The GitHub destination is `memesareiternal-crypto/Chronicle-mod-`, branch `codex/chronicle-psychokinesis`, PR #1. The working branch is distinct from `main` until the PR is merged.
 
-## Current implementation
+The final production build and 38 real Forge GameTests pass. Tests include 256-mob group selection and reversible control, output adjustments, the skeleton disarming input path, composite claims, collision damage, barrier/projectile interaction, queued inventory-safe extraction/placement, and flight timeout/permission safety. Test classes are excluded from the production jar. Client screenshots verified the latest prismatic films, animated crystal emission, textured mass, and meter above the hotbar. The test camera lock was removed. Live multiplayer and TaCZ modpack validation remain separate acceptance tasks.
 
-Forge 1.20.1 / 47.4.26, Java 17, version `1.0.0-remake`, registry namespace `psychokinesis`. The input architecture is contextual: G grips, vanilla right click channels output, and B controls barriers. There is no ability dial. Moving matter is one server carrier and uses real baked block models for its exposed client surface. No gameplay Java remains from `com.telekinesis`.
+For this workstation, set `JAVA_HOME` to `C:\Program Files\Eclipse Adoptium\jdk-17.0.20.101-hotspot` and `GRADLE_USER_HOME` to `C:\Users\memes\.gradle`, then run `gradlew.bat --offline build` and `gradlew.bat --offline runGameTestServer`. Cache access can require sandbox escalation. Do not run concurrent Gradle game sessions or commit ignored build/run/log artifacts.
 
-## Verification and immediate work
-
-- Production `build` passes. Jar: `build/libs/psychokinesis-1.0.0-remake.jar`.
-- Actual Forge GameTest run discovered and passed all 9 required tests. Do not confuse earlier fixture setup failures/zero-test runs with the final passing run.
-- The production jar was inspected: zero legacy `com/telekinesis` classes and zero bundled test classes.
-- Client launched, loaded assets without mod/resource errors, and joined a newly created local world. The user then stopped Computer Use with Escape. Do not resume UI automation without a new request. Full interactive gameplay/modpack validation is not complete.
-- Published draft PR: https://github.com/memesareiternal-crypto/Chronicle-mod-/pull/1 . The branch contains the remake; main has not been merged. Follow-up work is the acceptance checklist and fidelity limits in docs/COMPATIBILITY.md, not rebuilding the project.
-- `docs/COMPATIBILITY.md` is the authoritative list of fidelity limits and unverified behavior; do not claim every requested nuance is finished.
-## Build commands on this workstation
-
-Set `JAVA_HOME` to the installed Java 17 directory (`C:\Program Files\Eclipse Adoptium\jdk-17.0.20.101-hotspot`) and `GRADLE_USER_HOME` to the existing user cache (`C:\Users\memes\.gradle`), then run `gradlew.bat --offline build` and `gradlew.bat --offline runGameTestServer`. Network/sandbox escalation may be required to access the cache. Logs/build/run directories are ignored; do not commit them.
-
-## Design invariants
-
-- Exactly two custom keys (G and B); right click, vanilla modifiers, and wheel supply context. Normal hotbar scrolling must work unless G or an active barrier-shaping chord is held.
-- Server chooses targets and computes force/damage. Packets never provide world edits or arbitrary coordinates.
-- Ownership is exclusive; every suspension restores AI/gravity on cleanup. A thrown target must not be immediately re-grabbed until G is released.
-- Snapshot capture and placement preserve inventories and validate before mutation. Failed placement must leave every cell recoverable.
-- All levels have finite strain capacity. Sustained flight/fields/holds must not be offset by idle recovery in the same tick. Overuse reduces control and never directly damages the user.
-- Never emit power particles or call vanilla explosion/destruction effects to implement psychic visuals.
-- Only crystal assets and the build scaffold are inherited. Do not resume the old implementation in the parent directory.
+Preserve server-authoritative input, exclusive reversible ownership, inventory-safe recoverable transfers, cached block-texture meshes, global work budgets, finite strain without self-damage, and acceleration flight without creative permissions. Extend physical primitives and contextual gestures rather than exposing a list of selectable powers.

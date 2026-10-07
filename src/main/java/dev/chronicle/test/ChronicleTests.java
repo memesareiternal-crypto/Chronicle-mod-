@@ -70,6 +70,6 @@ public final class ChronicleTests {
         h.assertFalse(mob.isNoAi()||mob.isNoGravity(),"Release must restore original AI and gravity");h.succeed();
     }
     @GameTest(template="empty") public static void input_is_bounded(GameTestHelper h) {
-        Intent intent=new Intent(-1,Integer.MAX_VALUE);h.assertTrue(intent.buttons()==63&&intent.wheel()==1,"Untrusted input must be bounded");h.succeed();
+        Intent intent=new Intent(-1,Integer.MAX_VALUE);h.assertTrue(intent.buttons()==2047&&intent.wheel()==1,"Untrusted input must be bounded");h.succeed();
     }
 }

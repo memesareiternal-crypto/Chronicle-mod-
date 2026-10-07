@@ -31,11 +31,31 @@ public final class MatterBody extends Entity implements IEntityAdditionalSpawnDa
     private long lastHeld = Long.MIN_VALUE;
     private int stillTicks;
     private UUID owner;
+    private boolean transferring;
+    private double physicalMass, hardness;
+    private int revision;
+    private Vec3 centerOfMass=Vec3.ZERO;
     public MatterBody(EntityType<? extends MatterBody> type, Level level) { super(type, level); }
-    @Override protected void defineSynchedData() { entityData.define(EXTENT, new BlockPos(1, 1, 1)); entityData.define(TURN, 0); }
+    @Override protected void defineSynchedData() { entityData.define(EXTENT,new BlockPos(1,1,1));entityData.define(TURN,0); }
     public record Cell(BlockPos offset, BlockState state, CompoundTag data) {}
     public List<Cell> cells() { return Collections.unmodifiableList(cells); }
     public int mass() { return cells.size(); }
+    public double physicalMass() { if(physicalMass<=0) measure(); return physicalMass; }
+    public double hardness() { if(physicalMass<=0) measure(); return hardness; }
+    public Vec3 centerOfMass() {if(physicalMass<=0)measure();return centerOfMass;}
+    public int revision() { return revision; }
+    public void owner(UUID value){owner=value;}
+    public boolean transferring() { return transferring; }
+    public void transferring(boolean value) { transferring=value; setNoGravity(value); }
+    public void addCell(Cell cell) { cells.add(cell); physicalMass=0; revision++; }
+    public void removeCell(Cell cell) { cells.remove(cell); physicalMass=0; revision++; }
+    public void initialize(BlockPos low, BlockPos high, UUID actor) { owner=actor; entityData.set(EXTENT,high.subtract(low).offset(1,1,1)); setPos(low.getX()+width()/2.,low.getY(),low.getZ()+depth()/2.); }
+    private void measure() {
+        physicalMass=0;hardness=0;centerOfMass=Vec3.ZERO;
+        for(Cell cell:cells) { double h=Math.max(0,cell.state.getDestroySpeed(level(),blockPosition())); double weight=(cell.state.getFluidState().isEmpty()?1+Math.min(8,h):.8)*Settings.MASS_DENSITY.get();physicalMass+=weight;hardness+=h;centerOfMass=centerOfMass.add(Vec3.atCenterOf(cell.offset).scale(weight)); }
+        if(physicalMass>0)centerOfMass=centerOfMass.scale(1/physicalMass);
+        hardness=cells.isEmpty()?0:hardness/cells.size();
+    }
     public BlockPos extent() { return entityData.get(EXTENT); }
     public int turn() { return entityData.get(TURN); }
     public void rotate(int delta) { entityData.set(TURN, Math.floorMod(turn() + delta, 4)); }
@@ -44,8 +64,8 @@ public final class MatterBody extends Entity implements IEntityAdditionalSpawnDa
     public void held() { lastHeld = level().getGameTime(); setNoGravity(true); stillTicks = 0; }
     public void release() { lastHeld = Long.MIN_VALUE; setNoGravity(false); }
     public boolean isHeld() { return lastHeld != Long.MIN_VALUE && level().getGameTime() - lastHeld <= 5; }
-    @Override public EntityDimensions getDimensions(Pose pose) { return EntityDimensions.scalable(Math.max(extent().getX(), extent().getZ()), extent().getY()); }
-    @Override public void onSyncedDataUpdated(EntityDataAccessor<?> key) { super.onSyncedDataUpdated(key); if (EXTENT.equals(key)) refreshDimensions(); }
+    @Override public EntityDimensions getDimensions(Pose pose) {return EntityDimensions.scalable(Math.max(extent().getX(),extent().getZ()),extent().getY());}
+    @Override public void onSyncedDataUpdated(EntityDataAccessor<?> key) {super.onSyncedDataUpdated(key);if(EXTENT.equals(key))refreshDimensions();}
     @Override public boolean isPickable() { return true; }
     @Override public boolean canBeCollidedWith() { return true; }
     @Override protected boolean canAddPassenger(Entity passenger) { return getPassengers().isEmpty(); }
@@ -95,56 +115,65 @@ public final class MatterBody extends Entity implements IEntityAdditionalSpawnDa
     }
     public boolean place(BlockPos base, ServerPlayer actor) {
         if (!(level() instanceof ServerLevel server)) return false;
+        if(transferring) return false;
+        if(cells.size()>Settings.WORLD_EDIT_BUDGET.get())return dev.chronicle.world.MassJobs.place(this,base,actor);
         for (Cell cell : cells) {
             BlockPos target = base.offset(rotated(cell.offset));
             if (!WorldAccess.loaded(server, target) || !server.getBlockState(target).canBeReplaced()
                 || (actor != null && !WorldAccess.edit(actor, target))) return false;
         }
-        for (Cell cell : cells) {
-            BlockPos target = base.offset(rotated(cell.offset));
-            server.setBlock(target, cell.state.rotate(Rotation.values()[turn()]), 18);
-            if (cell.data != null && server.getBlockEntity(target) != null) {
-                CompoundTag nbt = cell.data.copy(); nbt.putInt("x", target.getX()); nbt.putInt("y", target.getY()); nbt.putInt("z", target.getZ());
-                server.getBlockEntity(target).load(nbt); server.getBlockEntity(target).setChanged();
-            }
-        }
+        Map<BlockPos,BlockState> previous=new LinkedHashMap<>();
+        for(Cell cell:cells){BlockPos pos=base.offset(rotated(cell.offset));previous.put(pos,server.getBlockState(pos));if(!putCell(server,base,cell)){for(var row:previous.entrySet()){server.removeBlockEntity(row.getKey());server.setBlock(row.getKey(),row.getValue(),18);}return false;}}
         for (Cell cell : cells) server.updateNeighborsAt(base.offset(rotated(cell.offset)), cell.state.getBlock());
         ejectPassengers(); discard(); return true;
     }
+    public boolean putCell(ServerLevel server,BlockPos base,Cell cell) {
+        BlockPos target=base.offset(rotated(cell.offset));BlockState state=cell.state.rotate(Rotation.values()[turn()]);BlockState previous=server.getBlockState(target);
+        if(!server.setBlock(target,state,18)||server.getBlockState(target)!=state)return false;
+        if(cell.data!=null) {var be=server.getBlockEntity(target);if(be==null){server.setBlock(target,previous,18);return false;}try{CompoundTag nbt=cell.data.copy();nbt.putInt("x",target.getX());nbt.putInt("y",target.getY());nbt.putInt("z",target.getZ());be.load(nbt);be.setChanged();}catch(RuntimeException failure){server.removeBlockEntity(target);server.setBlock(target,previous,18);return false;} }
+        return true;
+    }
     public void shatter(ServerPlayer actor) {
-        if (!Settings.TERRAIN.get()) return;
+        if (!Settings.TERRAIN.get() || transferring) return;
         // Inventory-bearing bodies must be placed first; never synthesize duplicate contents.
         if (cells.stream().anyMatch(c -> c.data != null)) return;
-        for (Cell cell : cells) Block.dropResources(cell.state, actor.serverLevel(), blockPosition(), null, actor, net.minecraft.world.item.ItemStack.EMPTY);
-        discard();
+        dev.chronicle.world.MassJobs.shatter(this,actor);
     }
     @Override public void tick() {
         super.tick(); if (level().isClientSide) return;
+        if(transferring) { setDeltaMovement(Vec3.ZERO); return; }
         boolean held = isHeld(); setNoGravity(held);
-        if (!held) setDeltaMovement(getDeltaMovement().add(0, -.04, 0).scale(.98));
+        if (!held) setDeltaMovement(getDeltaMovement().add(0, -Settings.MATTER_GRAVITY.get(), 0).scale(Settings.MATTER_DRAG.get()));
         move(MoverType.SELF, getDeltaMovement());
         if (!held && (onGround() || getDeltaMovement().lengthSqr() < .0005)) stillTicks++; else stillTicks = 0;
         if (stillTicks > 20 && tickCount % 20 == 0) {
             var actor = owner == null ? null : ((ServerLevel)level()).getServer().getPlayerList().getPlayer(owner);
+            if(owner!=null && actor==null)return;
             place(BlockPos.containing(getX() - width() / 2., getY(), getZ() - depth() / 2.), actor);
         }
     }
     @Override protected void addAdditionalSaveData(CompoundTag tag) {
-        tag.put("extent", NbtUtils.writeBlockPos(extent())); tag.putInt("turn", turn()); if (owner != null) tag.putUUID("owner", owner);
+        tag.put("extent",NbtUtils.writeBlockPos(extent()));tag.putInt("turn",turn());if(owner!=null)tag.putUUID("owner",owner);
         ListTag list = new ListTag();
-        for (Cell cell : cells) { var row = new CompoundTag(); row.put("offset", NbtUtils.writeBlockPos(cell.offset)); row.put("state", NbtUtils.writeBlockState(cell.state)); if (cell.data != null) row.put("data", cell.data.copy()); list.add(row); }
-        tag.put("cells", list);
+        ListTag palette=new ListTag();Map<BlockState,Integer> ids=new HashMap<>();
+        for(Cell cell:cells){if(!ids.containsKey(cell.state)){ids.put(cell.state,palette.size());palette.add(NbtUtils.writeBlockState(cell.state));}var row=new CompoundTag();row.put("offset",NbtUtils.writeBlockPos(cell.offset));row.putInt("palette",ids.get(cell.state));if(cell.data!=null)row.put("data",cell.data.copy());list.add(row);}
+        tag.put("cells",list);tag.put("palette",palette);
     }
     @Override protected void readAdditionalSaveData(CompoundTag tag) {
         entityData.set(EXTENT, NbtUtils.readBlockPos(tag.getCompound("extent"))); entityData.set(TURN, Math.floorMod(tag.getInt("turn"), 4));
-        owner = tag.hasUUID("owner") ? tag.getUUID("owner") : null; cells.clear();
-        for (Tag row : tag.getList("cells", Tag.TAG_COMPOUND)) { var c = (CompoundTag)row; cells.add(new Cell(NbtUtils.readBlockPos(c.getCompound("offset")), NbtUtils.readBlockState(BuiltInRegistries.BLOCK.asLookup(), c.getCompound("state")), c.contains("data") ? c.getCompound("data") : null)); }
+        owner = tag.hasUUID("owner") ? tag.getUUID("owner") : null; cells.clear(); physicalMass=0; revision++;
+        List<BlockState> palette=new ArrayList<>();for(Tag row:tag.getList("palette",Tag.TAG_COMPOUND))palette.add(NbtUtils.readBlockState(BuiltInRegistries.BLOCK.asLookup(),(CompoundTag)row));
+        for(Tag row:tag.getList("cells",Tag.TAG_COMPOUND)){var c=(CompoundTag)row;BlockState state=c.contains("state")?NbtUtils.readBlockState(BuiltInRegistries.BLOCK.asLookup(),c.getCompound("state")):palette.get(c.getInt("palette"));cells.add(new Cell(NbtUtils.readBlockPos(c.getCompound("offset")),state,c.contains("data")?c.getCompound("data"):null));}
         release();
     }
-    @Override public void writeSpawnData(FriendlyByteBuf b) { b.writeVarInt(cells.size()); for (Cell c : cells) { b.writeBlockPos(c.offset); b.writeVarInt(Block.getId(c.state)); } }
+    @Override public void writeSpawnData(FriendlyByteBuf b) {
+        List<BlockState> palette=new ArrayList<>();Map<BlockState,Integer> ids=new HashMap<>();for(Cell c:cells) if(!ids.containsKey(c.state)){ids.put(c.state,palette.size());palette.add(c.state);}
+        b.writeVarInt(palette.size());for(BlockState state:palette)b.writeVarInt(Block.getId(state));b.writeVarInt(cells.size());for(Cell c:cells){b.writeBlockPos(c.offset);b.writeVarInt(ids.get(c.state));}
+    }
     @Override public void readSpawnData(FriendlyByteBuf b) {
+        int size=b.readVarInt();if(size<0||size>32768)throw new IllegalArgumentException("Invalid palette");List<BlockState> palette=new ArrayList<>();for(int i=0;i<size;i++)palette.add(Block.stateById(b.readVarInt()));
         int count = b.readVarInt(); if (count < 0 || count > 32768) throw new IllegalArgumentException("Invalid matter snapshot");
-        cells.clear(); for (int i = 0; i < count; i++) cells.add(new Cell(b.readBlockPos(), Block.stateById(b.readVarInt()), null));
+        cells.clear();for(int i=0;i<count;i++){BlockPos pos=b.readBlockPos();int id=b.readVarInt();if(id<0||id>=size)throw new IllegalArgumentException("Invalid palette index");cells.add(new Cell(pos,palette.get(id),null));}revision++;physicalMass=0;
     }
     @Override public Packet<ClientGamePacketListener> getAddEntityPacket() { return NetworkHooks.getEntitySpawningPacket(this); }
 }

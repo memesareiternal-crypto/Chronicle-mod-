@@ -32,12 +32,15 @@ public final class Presentation {
     private static int lastButtons = -1;
     @SubscribeEvent public static void keys(RegisterKeyMappingsEvent e) { e.register(GRIP); e.register(BARRIER); MinecraftForge.EVENT_BUS.register(new Runtime()); }
     @SubscribeEvent public static void renderers(EntityRenderersEvent.RegisterRenderers e) { e.registerEntityRenderer(Chronicle.MATTER.get(), MatterRenderer::new); e.registerEntityRenderer(Chronicle.CRYSTAL.get(), CrystalRenderer::new); }
+    @SubscribeEvent public static void reload(ModelEvent.BakingCompleted e){MatterRenderer.clear();}
     @SubscribeEvent public static void items(BuildCreativeModeTabContentsEvent e) { if (e.getTabKey() == CreativeModeTabs.SPAWN_EGGS) e.accept(Chronicle.CRYSTAL_EGG.get()); }
-    public static void receive(Wire.View view) { VIEWS.put(view.entity(), view); }
+    @SubscribeEvent public static void eggColors(RegisterColorHandlersEvent.Item e){e.register((stack,index)->index==0?0x171B26:0xEDEBF8,Chronicle.CRYSTAL_EGG.get());}
+    public static void receive(Wire.View view) { VIEWS.put(view.entity(),view); }
+    public static void receive(Wire.Snapshot snapshot){Minecraft mc=Minecraft.getInstance();if(mc.level!=null&&mc.level.getEntity(snapshot.entity()) instanceof dev.chronicle.entity.MatterBody body){var buffer=new net.minecraft.network.FriendlyByteBuf(io.netty.buffer.Unpooled.wrappedBuffer(snapshot.cells()));try{body.readSpawnData(buffer);}finally{buffer.release();}}}
     public static void receive(Wire.Effect effect) { Minecraft mc=Minecraft.getInstance(); if(mc.level!=null) EFFECTS.add(new Visual(effect,mc.level.getGameTime())); }
     private static int buttons() {
         Minecraft mc = Minecraft.getInstance(); if (mc.screen != null || !mc.isWindowActive()) return 0;
-        return (GRIP.isDown()?Intent.GRIP:0) | (mc.options.keyUse.isDown()?Intent.ACT:0) | (mc.options.keyShift.isDown()?Intent.SNEAK:0) | (mc.options.keyJump.isDown()?Intent.JUMP:0) | (mc.options.keySprint.isDown()?Intent.SPRINT:0) | (BARRIER.isDown()?Intent.BARRIER:0);
+        return (GRIP.isDown()?Intent.GRIP:0) | (mc.options.keyUse.isDown()?Intent.ACT:0) | (mc.options.keyShift.isDown()?Intent.SNEAK:0) | (mc.options.keyJump.isDown()?Intent.JUMP:0) | (mc.options.keySprint.isDown()?Intent.SPRINT:0) | (BARRIER.isDown()?Intent.BARRIER:0) | (mc.options.keyUp.isDown()?Intent.FORWARD:0) | (mc.options.keyDown.isDown()?Intent.BACK:0) | (mc.options.keyLeft.isDown()?Intent.LEFT:0) | (mc.options.keyRight.isDown()?Intent.RIGHT:0) | (mc.options.keyAttack.isDown()?Intent.ATTACK:0);
     }
     public static final class Runtime {
         @SubscribeEvent public void tick(TickEvent.ClientTickEvent e) {
@@ -48,52 +51,52 @@ public final class Presentation {
         }
         @SubscribeEvent public void scroll(InputEvent.MouseScrollingEvent e) {
             Minecraft mc = Minecraft.getInstance(); if (mc.player == null || mc.screen != null) return;
-            var state = VIEWS.get(mc.player.getId()); if (state == null || !state.active() || (!GRIP.isDown() && !BARRIER.isDown())) return;
-            Wire.CHANNEL.sendToServer(new Wire.Input(buttons(), e.getScrollDelta()>0?1:-1)); e.setCanceled(true);
+            var state = VIEWS.get(mc.player.getId()); if (state == null || !state.active() || (!mc.options.keyShift.isDown() && !GRIP.isDown() && !mc.options.keyUse.isDown() && !BARRIER.isDown())) return;
+            Wire.CHANNEL.sendToServer(new Wire.Input(buttons(),e.getScrollDelta()>0?1:-1));
         }
         @SubscribeEvent public void interaction(InputEvent.InteractionKeyMappingTriggered e) {
-            Minecraft mc=Minecraft.getInstance(); if(mc.player==null || !e.isUseItem()) return;
+            Minecraft mc=Minecraft.getInstance(); if(mc.player==null) return;
             var state=VIEWS.get(mc.player.getId());
-            if(state!=null && state.active()) { e.setSwingHand(false); e.setCanceled(true); }
+            if(state!=null && state.active() && (e.isUseItem() || (e.isAttack()&&(state.holding()||mc.options.keyUse.isDown())))) { e.setSwingHand(false); e.setCanceled(true); }
         }
-        @SubscribeEvent public void logout(ClientPlayerNetworkEvent.LoggingOut e) { VIEWS.clear(); EFFECTS.clear(); lastButtons = -1; }
+        @SubscribeEvent public void logout(ClientPlayerNetworkEvent.LoggingOut e) { VIEWS.clear(); EFFECTS.clear(); MatterRenderer.clear(); lastButtons = -1; }
+        @SubscribeEvent public void output(RenderGuiEvent.Post e){Minecraft mc=Minecraft.getInstance();if(mc.player==null||mc.options.hideGui)return;var state=VIEWS.get(mc.player.getId());if(state==null||!state.active())return;int width=182,x=mc.getWindow().getGuiScaledWidth()/2-width/2;boolean survival=mc.gameMode!=null&&mc.gameMode.canHurtPlayer();int extra=survival?Math.max(0,(int)Math.ceil((mc.player.getMaxHealth()+mc.player.getAbsorptionAmount())/20.)-1)*10:0;int y=mc.getWindow().getGuiScaledHeight()-(survival?52+extra:35);e.getGuiGraphics().fill(x-1,y-1,x+width+1,y+4,0x66000000);int filled=Math.round(width*state.output());for(int i=0;i<filled;i++){int color=net.minecraft.util.Mth.hsvToRgb((float)((i/(double)width+mc.player.tickCount*.002)%1),.4f,1f);e.getGuiGraphics().fill(x+i,y,x+i+1,y+3,0xBB000000|color);}}
         @SubscribeEvent public void world(RenderLevelStageEvent e) {
-            if (e.getStage() != RenderLevelStageEvent.Stage.AFTER_ENTITIES) return;
+            if (e.getStage() != RenderLevelStageEvent.Stage.AFTER_TRANSLUCENT_BLOCKS) return;
             Minecraft mc = Minecraft.getInstance(); if (mc.level == null || mc.player == null) return;
             var pose = e.getPoseStack(); Vec3 eye = e.getCamera().getPosition(); pose.pushPose(); pose.translate(-eye.x,-eye.y,-eye.z);
-            var lines = mc.renderBuffers().bufferSource().getBuffer(RenderType.lines());
+            var lines = mc.renderBuffers().bufferSource().getBuffer(PsychicRenderType.FILM);
             for (var player : mc.level.players()) {
                 var state = VIEWS.get(player.getId()); if (state == null || !state.active()) continue;
                 if (state.color() >= 0 && (player != mc.player || !mc.options.getCameraType().isFirstPerson())) {
-                    float r=((state.color()>>16)&255)/255f, g=((state.color()>>8)&255)/255f, b=(state.color()&255)/255f;
                     var box=player.getBoundingBox().move(player.getPosition(e.getPartialTick()).subtract(player.position())).inflate(.035);
-                    LevelRenderer.renderLineBox(pose,lines,box,r,g,b,.25f);
+                    PsychicGeometry.aura(pose,lines,box.getCenter(),player.getBbWidth()*.57,player.getBbHeight()*.55,state.color());
                 }
                 if (state.effects() && state.ward()!=null && state.radius()>0) {
-                    float r=((state.color()>>16)&255)/255f, g=((state.color()>>8)&255)/255f, b=(state.color()&255)/255f;
-                    double q=state.radius(), thin=state.plane()?.12:q;
-                    AABB box=new AABB(state.ward().x-q,state.ward().y-(state.plane()?q:thin),state.ward().z-thin,state.ward().x+q,state.ward().y+(state.plane()?q:thin),state.ward().z+thin);
-                    LevelRenderer.renderLineBox(pose,lines,box,r,g,b,.35f+.55f*state.integrity());
-                    if(state.integrity()<.7f) LevelRenderer.renderLineBox(pose,lines,box.inflate(-q*.14),1f,.35f,.5f,.6f);
+                    int color=state.color()<0?0xA8D7FF:state.color();float alpha=.16f+.18f*state.integrity();
+                    if(state.plane()){PsychicGeometry.disc(pose,lines,state.ward(),state.normal(),state.radius(),color,alpha);}
+                    else PsychicGeometry.shell(pose,lines,state.ward(),state.radius(),state.shape()==1,color,alpha);
+                    if(state.integrity()<.6f)PsychicGeometry.cracks(pose,lines,state.ward().add(state.normal().scale(state.plane()?0:state.radius())),state.normal(),state.radius()*.6,color,1-state.integrity());
+                    if(state.impact()!=null&&state.impactAge()<15){Vec3 normal=state.plane()?state.normal():state.impact().subtract(state.ward()).normalize();PsychicGeometry.ring(pose,lines,state.impact().add(normal.scale(.03)),normal,.15+state.impactAge()*.07,color,(1-state.impactAge()/15f)*.8f);}
                 }
             }
             long now=mc.level.getGameTime(); EFFECTS.removeIf(v->now-v.started>18);
             for(Visual v:EFFECTS) {
                 double t=Math.min(1,(now-v.started+e.getPartialTick())/18.), q=v.effect.radius()*t;
-                float r=((v.effect.color()>>16)&255)/255f,g=((v.effect.color()>>8)&255)/255f,b=(v.effect.color()&255)/255f,a=(float)(1-t);
+                float a=(float)(1-t);
                 Vec3 c=v.effect.center();
-                LevelRenderer.renderLineBox(pose,lines,new AABB(c.x-q,c.y-q*(v.effect.kind()==Wire.Effect.WAVE?.15:1),c.z-q,c.x+q,c.y+q*(v.effect.kind()==Wire.Effect.WAVE?.15:1),c.z+q),r,g,b,a);
-                if(v.effect.kind()==Wire.Effect.EXPLOSION && q>1) LevelRenderer.renderLineBox(pose,lines,new AABB(c.x-q*.7,c.y-q*.7,c.z-q*.7,c.x+q*.7,c.y+q*.7,c.z+q*.7),.8f,.9f,1f,a*.7f);
+                if(v.effect.kind()==Wire.Effect.EXPLOSION){PsychicGeometry.shell(pose,lines,c,q,false,v.effect.color(),a*.55f);PsychicGeometry.ring(pose,lines,c,new Vec3(0,1,0),q*1.25,v.effect.color(),a*.8f);}
+                else PsychicGeometry.ring(pose,lines,c,new Vec3(0,1,0),q,v.effect.color(),a*.5f);
             }
             // Snapped placement preview uses the actual carrier footprint and the existing crosshair.
-            if (GRIP.isDown() && mc.options.keySprint.isDown() && mc.hitResult instanceof net.minecraft.world.phys.BlockHitResult hit) {
+            if ((GRIP.isDown()||mc.options.keyUse.isDown()) && mc.options.keySprint.isDown() && mc.hitResult instanceof net.minecraft.world.phys.BlockHitResult hit) {
                 var bodies=mc.level.getEntitiesOfClass(dev.chronicle.entity.MatterBody.class,mc.player.getBoundingBox().inflate(32));
                 if (!bodies.isEmpty()) { var body=bodies.stream().min(Comparator.comparingDouble(x->x.distanceToSqr(mc.player))).orElseThrow();
                     BlockPos base=hit.getBlockPos().relative(hit.getDirection()).offset(-body.width()/2,0,-body.depth()/2);
-                    LevelRenderer.renderLineBox(pose,lines,new AABB(base,base.offset(body.width(),body.extent().getY(),body.depth())),.7f,1f,.8f,.45f);
+                    LevelRenderer.renderLineBox(pose,mc.renderBuffers().bufferSource().getBuffer(RenderType.lines()),new AABB(base,base.offset(body.width(),body.extent().getY(),body.depth())),.7f,1f,.8f,.45f);
                 }
             }
-            pose.popPose(); mc.renderBuffers().bufferSource().endBatch(RenderType.lines());
+            pose.popPose();mc.renderBuffers().bufferSource().endBatch(PsychicRenderType.FILM);mc.renderBuffers().bufferSource().endBatch(RenderType.lines());
         }
     }
     private record Visual(Wire.Effect effect,long started) {}

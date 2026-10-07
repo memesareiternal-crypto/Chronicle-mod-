@@ -1,24 +1,28 @@
 # Codex handoff
 
-Current branch: `codex/chronicle-psychokinesis`. PR: https://github.com/memesareiternal-crypto/Chronicle-mod-/pull/1
+Read this first. Forge 1.20.1 / 47.4.26, Java 17, namespace `psychokinesis`, version `2.0.0-rebuild`.
+Branch: `codex/chronicle-psychokinesis`; PR: https://github.com/memesareiternal-crypto/Chronicle-mod-/pull/1 . Do not assume merged.
 
-Works: context grip/force controls, right-click activation, dedicated scalable barriers, 10-stage progression and public level command, one-entity block masses with real block textures, strain without self-damage, geometric effects toggle, corrected crystal UV/full-bright conversion, Forge build, 9 GameTests.
+Verified: final production build and all 38 Forge GameTests pass, including 256 real held mobs, output scaling, disarming input, composite ownership, impacts, queued inventory-safe masses, barrier capture, and survival flight cleanup.
+Works: primary right-click grip, optional G/add target, left-click throws/disarm/compression, pin/place, B sphere/dome/plane, contextual pressure/cuts/utility, acceleration flight, progression/config/commands.
 
-Partial: flight still uses vanilla ability movement; large mass extraction is synchronous and bounded; barrier planes use the player's current facing for protection checks; cutting exposes one contextual sweep; fluid movement and client mesh caching are not implemented.
+Output: crouch-scroll globally sets 5%–100%; unlabeled182px meter above hotbar/XP (H-52survival/H-35creative); vanilla hotbar scrolling also continues. Output scales force/reach/mass/group/flight/barrier/healing/defense.
+Visuals: more visible prismatic films/ripples, additive read-only-depth layer after translucent blocks; free player camera; no power particles/wire effects. Crystal has corrected textures and animated emissive cracks. Client screenshots verified the film, textures, glow pass, and aligned output meter. Test camera locking was removed.
 
-Current bugs/risks: visually verify the corrected OBJ crystal in a fresh client session; stress-test thousands of surface cells; multiplayer input and modded gun integration need live testing.
+Scale: default max-level target capacity ~323, ceiling512; block budget12288, volume32768; shared dimension work budget256. Existing user configs retain saved limits.
+Matter: one palette carrier, cached actual block-texture GPU meshes, queued extraction/placement, NBT kept server-side. Source fluids are grid cells; animated block-entity-only renderers use static particle-texture boxes.
+Limits: coarse bounds collision; some boss scripts override motion; live TaCZ and multiplayer/modpack acceptance unverified. Latest user explicitly excludes tilting/twisting; do not add them.
 
-Next tasks:
-1. Replace creative-style flight with acceleration steering.
-2. Queue large world extraction/placement across tick budgets.
-3. Cache block-model mass geometry into grouped render buffers.
-4. Expand gesture-based cut geometry without modes.
-5. Add group entity acquisition and pin/anchor gestures.
-6. Add barrier impact sound and directional deformation.
-7. Stress-test large masses and multiplayer.
+Next verification tasks:
 
-Core paths: `power/Concentration.java`, `power/Physics.java`, `power/Applications.java`, `entity/MatterBody.java`, `power/Ward.java`, `client/Presentation.java`, `client/MatterRenderer.java`, `Settings.java`.
+1. Confirm GitHub CI and review the published rebuild before merging.
+2. Run the full manual control sequence at stage1 and stage10, including crowded grabs and disarming.
+3. Validate two-player competition, dimension/death/logout recovery, and survival flight on allow-flight=false dedicated server.
+4. Install the intended TaCZ version and test weak/strong/headshot/AP/hitscan and explosive ammunition.
+5. Profile large carriers and hundreds of moving targets under real resource packs/modpacks.
 
-Build: set Java 17, then `gradlew.bat build` and `gradlew.bat runGameTestServer`.
+Core: `power/Concentration`, `Physics`, `Potential`, `Ward`, `FlightControl`, `FlightGuard`; `world/MassJobs`, `WorldActions`; `entity/MatterBody`; `client/Presentation`, `MatterRenderer`, `PsychicGeometry`; `Settings`, `network/Wire`, `compat/GunBridge`.
+Build: JAVA_HOME=`C:\Program Files\Eclipse Adoptium\jdk-17.0.20.101-hotspot`, GRADLE_USER_HOME=`C:\Users\memes\.gradle`; `gradlew.bat --offline build` / `gradlew.bat --offline runGameTestServer`.
+Jar: `build/libs/psychokinesis-2.0.0-rebuild.jar`. Keep run/build/log files out of commits.
 
-Do not restore a mode selector, action bar mode names, per-block entities, particle spam, or overuse damage.
+Invariants: server chooses targets/edits; exclusive reversible claims; recoverable inventories; global tick budgets; no ability wheel/text mode labels, per-cell entities, self-damage from overuse, creative-flight permissions, or power particle packets.

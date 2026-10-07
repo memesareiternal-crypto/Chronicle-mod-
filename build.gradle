@@ -84,6 +84,14 @@ minecraft {
         client {
             // Comma-separated list of namespaces to load gametests from. Empty = all namespaces.
             property 'forge.enabledGameTestNamespaces', mod_id
+            if (project.hasProperty('visualSmoke')) {
+                property 'chronicle.visualSmoke', 'true'
+                args '--quickPlaySingleplayer', 'Codex Visual Smoke'
+            }
+            if (project.hasProperty('playtest')) {
+                property 'chronicle.playtest', 'true'
+                args '--quickPlaySingleplayer', 'Codex Visual Smoke'
+            }
         }
 
         server {

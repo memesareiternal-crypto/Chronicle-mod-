@@ -1,18 +1,21 @@
-# Architecture of the remake
+# Architecture reference
 
-All gameplay was rewritten under `dev.chronicle`. The original `com.telekinesis` implementation is absent.
+[The root architecture document](../ARCHITECTURE.md) is authoritative. This index maps the reusable systems to source paths under `src/main/java/dev/chronicle/`.
 
-- `Potential`: persistent acquisition, active state, random color, quadratic experience progression and strain. Age experience is earned only while online. An inactive power retains its level.
-- `Intent` and `Wire`: clients submit bounded button bits and wheel direction. They never submit targets, positions, force or damage. A direction-restricted channel carries server state back to clients.
-- `Concentration`: one transient server session per player. Owns the intent dial, continuous holds, selection, field, flight, charges and modifiers. Timeouts release stale input. Logout, death, dimension changes and server shutdown restore controlled objects and flight permissions.
-- `Physics`: exclusive entity ownership, reversible AI/gravity suspension, health/mass resistance, velocity changes, specialized item projectiles and swept collision damage. Entity NBT marks suspended state so reload can recover orphaned holds.
-- `Applications`: server ray targeting, connected-tree lifting, region peeling, pressure, remote interaction/building, seed-accounted farming and geometric cuts. Block edits respect loaded chunks, world borders, player edit permissions and Forge break-event vetoes.
-- `MatterBody`: one entity stores many block states and optional block-entity NBT. Capture validates the complete set before changing it; removing block entities before replacement prevents container duplication. Deployment validates all destinations before writing. Body orientation rotates relative positions and states together. Inventory data never travels in the client mesh packet.
-- `Ward`: follows self, an entity or an anchor. Its finite integrity, pressure boundary, projectile collection and expendable orbiting items share the same ownership layer as grabs.
-- `GunBridge`: optional reflective integration with TaCZ's public bullet and pre-hurt event API. Total damage is checked before AP/non-AP splitting. Unknown versions retain the Forge fallback.
-- `Chambers` and `ResonantCrystal`: delayed, bounded chamber generation in new Overworld chunks plus a persistent oversized crystal entity. A testing egg spawns the entity only.
-- `Presentation`: two key mappings, state-driven hints and geometry outlines. `MatterRenderer` greedily merges visible adjacent faces once and batches the resulting mesh. `CrystalRenderer` uses the supplied OBJ materials.
+| System | Source | Responsibility |
+| --- | --- | --- |
+| Contextual control | `power/Concentration.java`, `power/Intent.java` | Grip/group context, charge, modifiers, selection radius, pin/place, barrier and flight lifecycle |
+| Progression/output | `power/Potential.java`, `Settings.java` | Persistent power, 10 stages, chosen output, strain, growth, strength and workload configuration |
+| Shared physics | `power/Physics.java` | Composite mass/resistance, exclusive claims, reversible suspension, momentum, impact work and compression |
+| Flight | `power/FlightControl.java`, `power/FlightGuard.java` | Acceleration/braking and narrow acknowledgement of authorized movement without creative permissions |
+| Selection/utility | `power/Applications.java` | Server ray targeting, group acquisition, pressure, cuts, remote interaction, crops, deposit and construction |
+| Queued world changes | `world/MassJobs.java`, `world/WorldActions.java`, `world/WorldAccess.java` | Loaded-world validation, reservations, recoverable transfers and shared per-dimension work budget |
+| Grouped matter | `entity/MatterBody.java` | Palette states, relative cells, NBT, mass/hardness, ownership, transform and one ticking carrier |
+| Protection | `power/Ward.java` | Sphere/dome/plane crossing, capacity, integrity, penetration, attachments and projectile capture |
+| Networking | `network/Wire.java` | Bounded client intent; server view/effect/palette snapshot messages; inventory data remains server-side |
+| Client presentation | `client/Presentation.java`, `client/PsychicGeometry.java`, `client/MatterRenderer.java`, `client/CrystalRenderer.java` | Meter above hotbar/XP, additive prismatic layer after translucent blocks with read-only depth, free camera, cached real block textures, animated crystal |
+| Optional guns | `compat/GunBridge.java` | TaCZ reflection bridge and conservative ordinary Forge fallback |
+| Awakening | `world/Chambers.java`, `world/CrystalSeed.java`, `entity/ResonantCrystal.java` | Budgeted rare chamber generation and persistent proximity-acquired power |
+| Regression verification | `test/*Tests.java` | 38 integrated Forge GameTests; excluded from production jar |
 
-Do not introduce one binding per application. Extend the shared physical primitives or contextual interpretations. Never send particle packets or vanilla explosion/block-destruction effects from power code. Vanilla combat, item, fluid and block mechanics can still have their own normal effects.
-
-Regression tests run in an actual Forge GameTest server. `tools/GenerateFixture.java` generates the bundled empty fixture using plain NBT. Production jar packaging excludes the test classes.
+No component exposes an ability selector. Moving structures do not create independently ticking cells. Output is one shared player setting; controls express physical operations through the existing target, force, and ownership systems.

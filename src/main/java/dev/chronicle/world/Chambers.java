@@ -30,7 +30,7 @@ public final class Chambers {
             }
         }
     }
-    private static boolean form(ServerLevel level, BlockPos center) {
+    public static boolean form(ServerLevel level, BlockPos center) {
         for (BlockPos pos : BlockPos.betweenClosed(center.offset(-5,-4,-5), center.offset(5,4,5))) {
             if (!WorldAccess.loaded(level, pos) || level.getBlockEntity(pos) != null || level.getBlockState(pos).getDestroySpeed(level,pos) < 0) return false;
         }

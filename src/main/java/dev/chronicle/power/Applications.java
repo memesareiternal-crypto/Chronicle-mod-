@@ -3,6 +3,8 @@ package dev.chronicle.power;
 import dev.chronicle.Settings;
 import dev.chronicle.entity.MatterBody;
 import dev.chronicle.world.WorldAccess;
+import dev.chronicle.world.MassJobs;
+import java.util.function.Consumer;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -41,6 +43,15 @@ public final class Applications {
         return best;
     }
     public static MatterBody lift(ServerPlayer p, boolean connected) { return liftArea(p, connected ? 2 : 0); }
+    public static void liftAsync(ServerPlayer p,int radius,Consumer<MatterBody> callback) {
+        var hit=aim(p);if(hit.getType()!=HitResult.Type.BLOCK){callback.accept(null);return;}
+        var seed=p.level().getBlockState(hit.getBlockPos());int r=radius;
+        if(seed.is(BlockTags.LOGS)||seed.is(BlockTags.LEAVES))r=Math.max(r,Math.min(Potential.area(p),12));
+        MassJobs.capture(p,hit.getBlockPos(),r,Potential.blocks(p),callback);
+    }
+    public static List<Entity> group(ServerPlayer p,Entity target,int radius){
+        if(target==null)return List.of();Vec3 center=target.position();return p.level().getEntities(p,new AABB(center,center).inflate(radius),e->Physics.allowed(p,e)&&e.distanceToSqr(center)<=radius*(double)radius).stream().sorted(Comparator.comparingDouble(e->e.distanceToSqr(center))).limit(Potential.targets(p)).toList();
+    }
     public static MatterBody liftArea(ServerPlayer p, int radius) {
         BlockHitResult hit = aim(p); if (hit.getType() != HitResult.Type.BLOCK) return null;
         BlockPos start = hit.getBlockPos(); BlockState seed = p.level().getBlockState(start);
@@ -58,21 +69,31 @@ public final class Applications {
         return MatterBody.capture(p.serverLevel(), selected, p);
     }
     public static void pressure(ServerPlayer p, boolean pull, double charge, boolean spherical) {
-        double reach = spherical ? 4 + Potential.level(p) * .12 + charge : Potential.reach(p);
+        double reach = spherical ? Math.min(Potential.reach(p), (3+Potential.level(p)*.9+charge)*Math.sqrt(Potential.strength())) : Potential.reach(p);
         Vec3 eye = p.getEyePosition(), look = p.getLookAngle();
+        Set<UUID> roots=new HashSet<>();
         for (Entity e : p.level().getEntities(p, p.getBoundingBox().inflate(reach), e -> Physics.allowed(p, e))) {
             Vec3 delta = e.getBoundingBox().getCenter().subtract(eye); double distance = delta.length();
             if (distance > reach || (!spherical && delta.normalize().dot(look) < .82)) continue;
+            if(!roots.add(e.getRootVehicle().getUUID()))continue;
             double strength = Potential.force(p) * charge * Math.max(.1, 1 - distance / reach);
             Vec3 force = (spherical || pull ? delta.normalize() : look).scale(strength * (pull ? -1 : 1));
-            Physics.velocity(e, e.getDeltaMovement().add(force));
-            if (spherical || charge > 1) e.hurt(p.damageSources().playerAttack(p), (float)(strength * 5));
+            Physics.impulse(p,e,force);
         }
         Potential.spend(p, (spherical ? 35 : 2) * charge);
     }
     public static boolean interact(ServerPlayer p) {
         var hit = aim(p); if (hit.getType() != HitResult.Type.BLOCK || !WorldAccess.edit(p, hit.getBlockPos())) return false;
         return p.level().getBlockState(hit.getBlockPos()).use(p.level(), p, InteractionHand.MAIN_HAND, hit).consumesAction();
+    }
+    public static boolean ripe(ServerPlayer p){var hit=aim(p);var state=p.level().getBlockState(hit.getBlockPos());return state.getBlock() instanceof CropBlock crop && crop.isMaxAge(state);}
+    public static boolean utility(ServerPlayer p){var block=p.level().getBlockState(aim(p).getBlockPos()).getBlock();return block instanceof DoorBlock||block instanceof TrapDoorBlock||block instanceof ButtonBlock||block instanceof LeverBlock||block instanceof FenceGateBlock||block instanceof EntityBlock;}
+    public static boolean deposit(ServerPlayer p,ItemEntity item){
+        var hit=aim(p);if(hit.getType()!=HitResult.Type.BLOCK||!WorldAccess.edit(p,hit.getBlockPos()))return false;
+        var be=p.level().getBlockEntity(hit.getBlockPos());if(be==null)return false;
+        var handler=be.getCapability(net.minecraftforge.common.capabilities.ForgeCapabilities.ITEM_HANDLER,hit.getDirection()).resolve();if(handler.isEmpty())return false;
+        ItemStack remaining=item.getItem().copy();for(int slot=0;slot<handler.get().getSlots()&&!remaining.isEmpty();slot++)remaining=handler.get().insertItem(slot,remaining,false);
+        if(remaining.getCount()==item.getItem().getCount())return false;if(remaining.isEmpty())item.discard();else item.setItem(remaining);return true;
     }
     public static void build(ServerPlayer p, boolean mirror, boolean erase, BlockPos plane) {
         var hit = aim(p); if (hit.getType() != HitResult.Type.BLOCK) return;
@@ -97,17 +118,18 @@ public final class Applications {
     }
     public static void tend(ServerPlayer p, boolean wide) {
         var hit = aim(p); if (hit.getType() != HitResult.Type.BLOCK) return;
-        int radius = wide ? Math.min(8, 2 + Potential.level(p) / 12) : 1;
-        for (BlockPos pos : BlockPos.betweenClosed(hit.getBlockPos().offset(-radius, -1, -radius), hit.getBlockPos().offset(radius, 1, radius))) {
+        int radius = wide ? Math.min(8, Potential.area(p)) : 1;
+        var positions=BlockPos.betweenClosedStream(hit.getBlockPos().offset(-radius,-1,-radius),hit.getBlockPos().offset(radius,1,radius)).map(BlockPos::immutable).sorted(Comparator.comparingDouble(pos->pos.distSqr(hit.getBlockPos()))).limit(Settings.TERRAIN_BUDGET.get()).toList();
+        dev.chronicle.world.WorldActions.enqueue(p,positions,pos->{
             BlockState state = p.level().getBlockState(pos);
-            if (!(state.getBlock() instanceof CropBlock crop) || !crop.isMaxAge(state) || !WorldAccess.edit(p, pos)) continue;
+            if (!(state.getBlock() instanceof CropBlock crop) || !crop.isMaxAge(state) || !WorldAccess.edit(p, pos)) return;
             var loot = Block.getDrops(state, p.serverLevel(), pos, null, p, ItemStack.EMPTY);
             Item seed = crop.getCloneItemStack(p.level(), pos, state).getItem(); boolean replant = false;
             for (ItemStack stack : loot) if (stack.is(seed) && !stack.isEmpty()) { stack.shrink(1); replant = true; break; }
             p.level().setBlock(pos, replant ? crop.getStateForAge(0) : Blocks.AIR.defaultBlockState(), 3);
             for (ItemStack stack : loot) if (!stack.isEmpty()) drop(p, pos, stack);
             Potential.spend(p, .5);
-        }
+        });
         for (ItemEntity item : p.level().getEntitiesOfClass(ItemEntity.class, new AABB(hit.getBlockPos()).inflate(radius + 2))) Physics.velocity(item, p.getEyePosition().subtract(item.position()).normalize().scale(.5));
     }
     public static MatterBody peel(ServerPlayer p, boolean twist) {
@@ -125,17 +147,14 @@ public final class Applications {
     public static void burstTerrain(ServerPlayer p, int charge) {
         if (!Settings.TERRAIN.get()) return;
         int radius = Math.min(16, 3 + Potential.level(p)/15 + charge/25);
-        List<BlockPos> positions = BlockPos.betweenClosedStream(p.blockPosition().offset(-radius,-radius,-radius),p.blockPosition().offset(radius,radius,radius))
-            .map(BlockPos::immutable).filter(pos -> pos.distSqr(p.blockPosition()) <= radius*radius).sorted(Comparator.comparingDouble(pos -> pos.distSqr(p.blockPosition()))).toList();
-        int changed=0;
-        for (BlockPos pos:positions) {
-            if (changed >= Settings.TERRAIN_BUDGET.get()) break;
-            if (!WorldAccess.loaded(p.serverLevel(),pos)) continue;
-            BlockState state=p.level().getBlockState(pos);float hardness=state.getDestroySpeed(p.level(),pos);
-            if (state.isAir() || hardness < 0 || hardness > Potential.force(p)*3 || !WorldAccess.edit(p,pos)) continue;
-            WorldAccess.harvest(p,pos,state);changed++;
+        // Displace cohesive terrain fragments through the same mass solver; no vanilla blast or radial block deletion.
+        int count=Math.min(8,2+Potential.level(p)/2);
+        for(int n=0;n<count;n++) {
+            double angle=n*Math.PI*2/count;Vec3 direction=new Vec3(Math.cos(angle),-.45,Math.sin(angle)).normalize();
+            Vec3 from=p.getEyePosition();var hit=p.level().clip(new ClipContext(from,from.add(direction.scale(radius+4)),ClipContext.Block.OUTLINE,ClipContext.Fluid.NONE,p));
+            if(hit.getType()!=HitResult.Type.BLOCK)continue;
+            int massRadius=Math.min(5,1+charge/35);MassJobs.capture(p,hit.getBlockPos(),massRadius,Math.min(Potential.blocks(p)/count,Settings.TERRAIN_BUDGET.get()),body->{if(body!=null){body.release();Physics.launch(p,body,body.position().subtract(p.position()).normalize().add(0,.6,0).scale(Math.min(4,Potential.force(p)*.4)));}});
         }
-        Potential.spend(p,changed*.1);
     }
     public static void edge(ServerPlayer p, Intent.Edge shape, Vec3 anchor, Vec3 previous) {
         Vec3 eye = p.getEyePosition(), look = p.getLookAngle(); double reach = Potential.reach(p);
@@ -159,14 +178,15 @@ public final class Applications {
                 if (e instanceof Projectile) { e.discard(); continue; }
                 if (e instanceof Sheep sheep && sheep.readyForShearing()) { sheep.shear(SoundSource.PLAYERS); continue; }
                 if (shape == Intent.Edge.SCISSOR && e instanceof Mob mob) mob.dropLeash(true, true);
-                e.hurt(shape == Intent.Edge.PIERCE ? p.damageSources().magic() : p.damageSources().playerAttack(p), (float)(2 + Potential.force(p) * 5));
+                e.hurt(p.damageSources().indirectMagic(p,p), (float)Math.min(Settings.MAX_COLLISION_DAMAGE.get(),2+Potential.force(p)*5));
             }
             Vec3 delta = s.to.subtract(s.from); int steps = Math.min(512, Mth.ceil(delta.length() * 3));
             for (int i = 0; i <= steps && visited.size() < Settings.TERRAIN_BUDGET.get(); i++) {
                 BlockPos pos = BlockPos.containing(s.from.add(delta.scale(i / (double)Math.max(1, steps))));
-                if (visited.add(pos)) cutBlock(p, pos);
+                visited.add(pos.immutable());
             }
         }
+        dev.chronicle.world.WorldActions.enqueue(p,visited,pos->cutBlock(p,pos));
         Potential.spend(p, 1 + segments.size() * .6 + victims.size() * .3);
     }
     private record Segment(Vec3 from, Vec3 to) {}
@@ -174,7 +194,7 @@ public final class Applications {
         if (!WorldAccess.loaded(p.serverLevel(), pos)) return;
         var state = p.level().getBlockState(pos); if (state.isAir()) return;
         float hardness = state.getDestroySpeed(p.level(), pos);
-        if (hardness < 0 || hardness > .5 + Potential.level(p) * Settings.HARDNESS.get() || !WorldAccess.edit(p, pos)) return;
+        if (hardness < 0 || hardness > .5 + Potential.level(p) * Settings.HARDNESS.get()*Math.sqrt(Potential.scale(p)*Potential.strength()) || !WorldAccess.edit(p, pos)) return;
         if (state.hasBlockEntity()) { WorldAccess.harvest(p, pos, state); return; }
         if (state.is(BlockTags.LOGS)) {
             var id = BuiltInRegistries.BLOCK.getKey(state.getBlock()); String name = id.getPath().replace("stripped_", "").replaceAll("_(log|wood|stem|hyphae)$", "_planks");

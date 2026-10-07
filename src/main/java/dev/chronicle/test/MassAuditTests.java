@@ -151,6 +151,7 @@ public final class MassAuditTests {
         AtomicReference<MatterBody> result = new AtomicReference<>();
         AtomicBoolean completed = new AtomicBoolean();
         AtomicReference<String> diagnostic = new AtomicReference<>("Capture callback has not completed yet");
+        AtomicReference<Integer> callbackRemaining = new AtomicReference<>();
         ServerPlayer actor = player(h, start);
         h.assertTrue(actor.isAlive() && actor.level() == h.getLevel(), "Stress actor must remain alive in the fixture dimension");
         h.assertTrue(WorldAccess.loaded(h.getLevel(), start) && WorldAccess.edit(actor, start),
@@ -161,17 +162,28 @@ public final class MassAuditTests {
                 if (!h.getLevel().getBlockState(pos).isAir()) remaining++;
             diagnostic.set("Capture callback: mass=" + (body == null ? "null" : body.mass())
                 + ", alive=" + (body != null && body.isAlive()) + ", sourceRemaining=" + remaining);
+            callbackRemaining.set(remaining);
             result.set(body);
             completed.set(true);
-            for (ChunkPos chunk : forced) h.getLevel().setChunkForced(chunk.x, chunk.z, false);
         });
         h.assertTrue(h.getLevel().getBlockState(start).is(Blocks.CHEST), "Large queue submission must leave the source in place");
         h.succeedWhen(() -> {
             MatterBody body = result.get();
             h.assertTrue(completed.get() && body != null && body.isAlive() && body.mass() == 1728,
                 "A 12-cubed region must complete as one body. " + diagnostic.get());
-            for (BlockPos pos : BlockPos.betweenClosed(start, start.offset(11, 11, 11)))
-                h.assertTrue(h.getLevel().getBlockState(pos).isAir(), "Every source cell must transfer exactly once");
+            h.assertTrue(callbackRemaining.get() != null && callbackRemaining.get() == 0,
+                "The capture callback must observe every source cell empty. " + diagnostic.get());
+            for (BlockPos pos : BlockPos.betweenClosed(start, end)) {
+                var state = h.getLevel().getBlockState(pos);
+                if (!state.isAir()) {
+                    BlockPos expectedOffset = pos.subtract(start);
+                    var savedCell = body.cells().stream().filter(c -> c.offset().equals(expectedOffset)).findFirst();
+                    h.assertTrue(false, "Every source cell must transfer exactly once; first remaining="
+                        + pos.toShortString() + ", state=" + state + ", snapshotOffset=" + expectedOffset.toShortString()
+                        + ", snapshotCell=" + savedCell.map(c -> c.state().toString()).orElse("missing")
+                        + ". " + diagnostic.get());
+                }
+            }
             h.assertTrue(h.getLevel().getEntitiesOfClass(ItemEntity.class,
                 new AABB(start, start.offset(12, 12, 12)).inflate(2),
                 item -> item.getItem().is(Items.DIAMOND)).isEmpty(), "Inventory transfer must not emit duplicate items");
@@ -187,6 +199,9 @@ public final class MassAuditTests {
             h.assertFalse(restored.isHeld() || restored.transferring(), "A saved carrier must recover without a stranded transfer lock");
             body.discard();
             restored.discard();
+            // Keep the fixture loaded through its complete assertion pass. Releasing in the
+            // capture callback can unload/reload these distant chunks before source validation.
+            for (ChunkPos chunk : forced) h.getLevel().setChunkForced(chunk.x, chunk.z, false);
         });
     }
 }
